@@ -1,0 +1,1055 @@
+<?php
+// config/security/helpers.php
+
+require_once __DIR__ . '/session.php';
+require_once __DIR__ . '/ui.php';
+
+if (!function_exists('redirect')) {
+    function redirect($url) {
+        header("Location: $url");
+        exit;
+    }
+}
+
+if (!function_exists('clean')) {
+    function clean($data) {
+        return htmlspecialchars(trim($data), ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('arabic_text')) {
+    /**
+     * Return the string only if it contains genuine Arabic script.
+     * Values holding placeholders/mojibake (e.g. "???????") return "" so
+     * corrupted rows never render as question marks on screen.
+     */
+    function arabic_text($str) {
+        $str = trim((string)$str);
+        if ($str === '') return '';
+        if (!preg_match('//u', $str)) return '';                            // not valid UTF-8
+        if (!preg_match('/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}]/u', $str)) {
+            return '';
+        }
+        return $str;
+    }
+}
+
+if (!function_exists('require_role')) {
+    function require_role($role) {
+        if (!isset($_SESSION['role']) || $_SESSION['role'] !== $role) {
+            redirect('/auth/login.php');
+        }
+    }
+}
+
+if (!function_exists('normalize_phone_to_intl')) {
+    /**
+     * Normalize a Nigerian phone number into international digits for wa.me links.
+     *   08012345678  -> 2348012345678
+     *   +2348012345678 / 2348012345678 / 0801 234 5678 -> 2348012345678
+     * Non-Nigerian numbers (with a different country code) are kept as digits.
+     * Returns '' when the input has no usable digits.
+     */
+    function normalize_phone_to_intl($phone) {
+        $digits = preg_replace('/[^0-9]/', '', (string)$phone);
+        if ($digits === '') return '';
+        if (strlen($digits) === 10 && $digits[0] === '0') {
+            return '234' . substr($digits, 1);
+        }
+        if (strlen($digits) === 11 && $digits[0] === '0') {
+            return '234' . substr($digits, 1);
+        }
+        if (strpos($digits, '234') === 0) return $digits;
+        if (strlen($digits) === 13 && strpos($digits, '234') === 0) return $digits;
+        return $digits;
+    }
+}
+
+if (!function_exists('setting')) {
+    /**
+     * Read a value from the app_settings table (safe if table missing).
+     */
+    function setting($conn, $key, $default = '') {
+        try {
+            $stmt = $conn->prepare("SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1");
+            if (!$stmt) return $default;
+            $stmt->bind_param("s", $key);
+            $stmt->execute();
+            $r = $stmt->get_result()->fetch_assoc();
+            return $r ? (string)$r['setting_value'] : $default;
+        } catch (Throwable $e) {
+            return $default;
+        }
+    }
+}
+
+if (!function_exists('exam_term_info')) {
+    /**
+     * Return the currently active exam term row (from exam_terms), or null.
+     * Safe to call even before the table exists (returns null).
+     */
+    function exam_term_info($conn) {
+        $id = (int)setting($conn, 'current_term_id', 0);
+        if ($id <= 0) return null;
+        try {
+            $stmt = $conn->prepare("SELECT * FROM exam_terms WHERE id = ? LIMIT 1");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $t = $stmt->get_result()->fetch_assoc();
+            return $t ?: null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+}
+
+if (!function_exists('term_date_windows')) {
+    /**
+     * The academy runs 3 terms within a single calendar year:
+     *   Term 1 (Jan – Apr) · Term 2 (May – Aug) · Term 3 (Sep – Dec)
+     * Returns the label + date window for each term in the given year.
+     */
+    function term_date_windows($year = null) {
+        $year = (int)($year ?: date('Y'));
+        return [
+            1 => ['name' => 'Term 1 (Jan – Apr)', 'start' => "$year-01-01", 'end' => "$year-04-30"],
+            2 => ['name' => 'Term 2 (May – Aug)', 'start' => "$year-05-01", 'end' => "$year-08-31"],
+            3 => ['name' => 'Term 3 (Sep – Dec)', 'start' => "$year-09-01", 'end' => "$year-12-31"],
+        ];
+    }
+}
+
+if (!function_exists('current_term_no')) {
+    /**
+     * Which of the 3 terms today's date falls in (1, 2 or 3).
+     */
+    function current_term_no() {
+        $m = (int)date('n');
+        if ($m >= 1 && $m <= 4) return 1;
+        if ($m >= 5 && $m <= 8) return 2;
+        return 3;
+    }
+}
+
+if (!function_exists('exam_terms_has_schema')) {
+    /**
+     * True when exam_terms carries the term_no/school_year columns.
+     */
+    function exam_terms_has_schema($conn) {
+        return db_table_exists($conn, 'exam_terms')
+            && db_column_exists($conn, 'exam_terms', 'term_no')
+            && db_column_exists($conn, 'exam_terms', 'school_year');
+    }
+}
+
+if (!function_exists('exam_term_label')) {
+    /**
+     * Human label for an exam term, e.g. "Term 2 (May – Aug)".
+     * $term is an exam_terms row (array) or a term id (with $conn).
+     */
+    function exam_term_label($term, $conn = null) {
+        static $cache = [];
+
+        if (is_array($term)) {
+            $no = (int)($term['term_no'] ?? 0);
+            $year = (int)($term['school_year'] ?? date('Y'));
+            if ($no >= 1 && $no <= 3) {
+                $windows = term_date_windows($year);
+                return $windows[$no]['name'];
+            }
+            return 'Term ' . (int)($term['id'] ?? 0);
+        }
+
+        $term_id = (int)$term;
+        if ($term_id <= 0) return '—';
+        if (isset($cache[$term_id])) return $cache[$term_id];
+
+        if (!$conn) {
+            $cache[$term_id] = 'Term ' . $term_id;
+            return $cache[$term_id];
+        }
+
+        try {
+            $stmt = $conn->prepare("SELECT term_no, school_year FROM exam_terms WHERE id = ? LIMIT 1");
+            $stmt->bind_param("i", $term_id);
+            $stmt->execute();
+            $t = $stmt->get_result()->fetch_assoc();
+            if ($t) {
+                $no = (int)($t['term_no'] ?? 0);
+                if ($no >= 1 && $no <= 3) {
+                    $windows = term_date_windows((int)($t['school_year'] ?? date('Y')));
+                    $cache[$term_id] = $windows[$no]['name'];
+                    return $cache[$term_id];
+                }
+                $cache[$term_id] = 'Term ' . $term_id;
+                return $cache[$term_id];
+            }
+        } catch (Throwable $e) {
+            /* fall through */
+        }
+        $cache[$term_id] = 'Term ' . $term_id;
+        return $cache[$term_id];
+    }
+}
+
+if (!function_exists('finalize_exam_term')) {
+    /**
+     * Close the active exam term: switch exam mode off, then snapshot
+     * participation. Students with NO attempt in this term become defaulters
+     * (locked from normal lessons; owe the N500 fee). Students whose attempt
+     * was rejected keep free exam access until they pass.
+     */
+    function finalize_exam_term($conn) {
+        $term = exam_term_info($conn);
+        $term_id = $term ? (int)$term['id'] : 0;
+
+        if ($term && !$term['deactivated_at']) {
+            $conn->query("UPDATE exam_terms SET deactivated_at = NOW(), finalized = 1 WHERE id = $term_id");
+        }
+        $conn->query("UPDATE app_settings SET setting_value = 'off' WHERE setting_key = 'exam_mode'");
+
+        if ($term_id <= 0) return;
+
+        /* ---- Non-participants: no (valid) attempt in this term ----
+           Draft attempts (started but not fully answered) count as NO
+           submission — the student becomes a defaulter like a non-starter. */
+        $res = $conn->query("
+            SELECT u.id FROM users u
+            WHERE u.role = 'student'
+              AND NOT EXISTS (
+                  SELECT 1 FROM exam_attempts ea
+                  WHERE ea.student_id = u.id AND ea.term_id = $term_id
+                    AND ea.status != 'draft'
+              )
+        ");
+        $ids = [];
+        while ($r = $res->fetch_assoc()) $ids[] = (int)$r['id'];
+        if (!empty($ids)) {
+            $ids_str = implode(',', $ids);
+            try {
+                $conn->query("
+                    UPDATE users
+                    SET exam_defaulted = 1, exam_owed = 1, exam_access = 0
+                    WHERE id IN ($ids_str)
+                ");
+            } catch (Throwable $e) {
+                /* users columns missing — ignore (SQL not yet applied) */
+            }
+        }
+
+        /* ---- Participants who were rejected: free exam-only access until they pass ----
+           Locked from normal lessons (exam_defaulted = 1) but no fee (exam_owed = 0)
+           and free retake access (exam_access = 1). Approved exams clear all flags. */
+        $res = $conn->query("
+            SELECT DISTINCT ea.student_id FROM exam_attempts ea
+            WHERE ea.term_id = $term_id AND ea.status = 'rejected'
+              AND NOT EXISTS (
+                  SELECT 1 FROM exam_attempts a2
+                  WHERE a2.student_id = ea.student_id AND a2.term_id = $term_id AND a2.status = 'approved'
+              )
+        ");
+        $ids = [];
+        while ($r = $res->fetch_assoc()) $ids[] = (int)$r['student_id'];
+        if (!empty($ids)) {
+            $ids_str = implode(',', $ids);
+            try {
+                $conn->query("UPDATE users SET exam_defaulted = 1, exam_owed = 0, exam_access = 1 WHERE id IN ($ids_str)");
+            } catch (Throwable $e) {
+                /* ignore */
+            }
+        }
+    }
+}
+
+if (!function_exists('reset_exam_section')) {
+    /**
+     * Wipe the entire exam section back to defaults, regardless of the current state:
+     *   - deletes every exam answer + attempt (and their audio files on disk)
+     *   - deletes every exam term
+     *   - turns exam mode OFF and clears exam_started_at / current_term_id
+     *   - clears every student's exam_defaulted / exam_owed / exam_access / exam_paid_at
+     * Every step is guarded so it never crashes on a partial/missing schema.
+     */
+    function reset_exam_section($conn) {
+        /* 1. Delete exam audio files from disk before dropping the rows */
+        try {
+            $res = $conn->query("SELECT audio_file FROM exam_answers");
+            if ($res) {
+                $base = dirname(__DIR__, 2) . '/uploads/exam_audio/';
+                while ($r = $res->fetch_assoc()) {
+                    $name = (string)($r['audio_file'] ?? '');
+                    if ($name === '') continue;
+                    $file = $base . basename($name);
+                    if (is_file($file)) @unlink($file);
+                }
+            }
+        } catch (Throwable $e) { /* ignore */ }
+
+        /* 2. Drop all exam rows (answers first for FK-less child/parent order) */
+        foreach (['exam_answers', 'exam_attempts', 'exam_terms'] as $t) {
+            try { $conn->query("DELETE FROM `$t`"); } catch (Throwable $e) { /* ignore */ }
+        }
+
+        /* 3. Reset settings back to default */
+        $settings = [
+            'exam_mode'        => 'off',
+            'exam_started_at'  => '',
+            'current_term_id'  => '',
+        ];
+        foreach ($settings as $k => $v) {
+            try {
+                $esc = $conn->real_escape_string($v);
+                $conn->query("INSERT INTO app_settings (setting_key, setting_value) VALUES ('$k', '$esc')
+                              ON DUPLICATE KEY UPDATE setting_value = '$esc'");
+            } catch (Throwable $e) { /* ignore */ }
+        }
+
+        /* 4. Clear every student's exam flags */
+        $sets = ['exam_defaulted = 0', 'exam_owed = 0', 'exam_access = 0'];
+        if (db_column_exists($conn, 'users', 'exam_paid_at')) $sets[] = 'exam_paid_at = NULL';
+        try {
+            $conn->query("UPDATE users SET " . implode(', ', $sets) . " WHERE role = 'student'");
+        } catch (Throwable $e) { /* ignore */ }
+    }
+}
+
+if (!function_exists('exam_mode_on')) {
+    /**
+     * True when the admin has activated global exam mode.
+     * Auto-closes the term once its 10-day window has expired.
+     * Safe to call even before app_settings exists (returns false).
+     */
+    function exam_mode_on($conn) {
+        $mode = setting($conn, 'exam_mode', 'off');
+        if ($mode !== 'on') return false;
+
+        $term = exam_term_info($conn);
+        if ($term && empty($term['deactivated_at']) && !empty($term['auto_close_at'])) {
+            if (strtotime($term['auto_close_at']) <= time()) {
+                finalize_exam_term($conn);
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+if (!function_exists('student_exam_locked')) {
+    /**
+     * True when the student missed the current exam term and has not yet
+     * gotten an approved result — their normal lessons stay locked.
+     */
+    function student_exam_locked($conn, $student_id) {
+        $student_id = (int)$student_id;
+        try {
+            $stmt = $conn->prepare("SELECT exam_defaulted FROM users WHERE id = ? LIMIT 1");
+            $stmt->bind_param("i", $student_id);
+            $stmt->execute();
+            $r = $stmt->get_result()->fetch_assoc();
+            return $r ? ((int)$r['exam_defaulted'] === 1) : false;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('student_exam_access')) {
+    /**
+     * True when the admin granted per-student exam access (after paying the
+     * N500 fee, or free retake after a rejection).
+     */
+    function student_exam_access($conn, $student_id) {
+        $student_id = (int)$student_id;
+        try {
+            $stmt = $conn->prepare("SELECT exam_access FROM users WHERE id = ? LIMIT 1");
+            $stmt->bind_param("i", $student_id);
+            $stmt->execute();
+            $r = $stmt->get_result()->fetch_assoc();
+            return $r ? ((int)$r['exam_access'] === 1) : false;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('can_take_exam')) {
+    /**
+     * True when the student may sit the exam: global exam mode is on,
+     * OR the exam is open for this student only.
+     */
+    function can_take_exam($conn, $student_id) {
+        return exam_mode_on($conn) || student_exam_access($conn, $student_id);
+    }
+}
+
+if (!function_exists('db_table_exists')) {
+    /**
+     * True when the given table exists. Never throws (returns false).
+     */
+    function db_table_exists($conn, $table) {
+        try {
+            $r = $conn->query("SHOW TABLES LIKE '" . $conn->real_escape_string($table) . "'");
+            return $r && $r->num_rows > 0;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('db_column_exists')) {
+    /**
+     * True when the given table has the given column. Never throws.
+     */
+    function db_column_exists($conn, $table, $column) {
+        try {
+            $res = $conn->query("SHOW COLUMNS FROM `" . $conn->real_escape_string($table) . "`");
+            if (!$res) return false;
+            $needle = strtolower((string)$column);
+            while ($row = $res->fetch_assoc()) {
+                if (strtolower((string)$row['Field']) === $needle) return true;
+            }
+            return false;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('db_column_type')) {
+    /**
+     * Return the column type definition (e.g. "enum('pending','approved','rejected')")
+     * or "" when missing. Never throws.
+     */
+    function db_column_type($conn, $table, $column) {
+        try {
+            $res = $conn->query("SHOW COLUMNS FROM `" . $conn->real_escape_string($table) . "`");
+            if (!$res) return '';
+            $needle = strtolower((string)$column);
+            while ($row = $res->fetch_assoc()) {
+                if (strtolower((string)$row['Field']) === $needle) return (string)$row['Type'];
+            }
+            return '';
+        } catch (Throwable $e) {
+            return '';
+        }
+    }
+}
+
+if (!function_exists('users_has_exam_columns')) {
+    /**
+     * True when the users table carries the exam default/payment columns.
+     * Missing schema would otherwise crash exam_defaults.php / exam_settings.php.
+     */
+    function users_has_exam_columns($conn) {
+        return db_column_exists($conn, 'users', 'exam_defaulted')
+            && db_column_exists($conn, 'users', 'exam_owed')
+            && db_column_exists($conn, 'users', 'exam_access')
+            && db_column_exists($conn, 'users', 'exam_paid_at');
+    }
+}
+
+if (!function_exists('exam_attempts_has_exam_columns')) {
+    /**
+     * True when exam_attempts carries the term_id / mistakes_count columns.
+     * Missing schema would otherwise crash admin/exams.php.
+     */
+    function exam_attempts_has_exam_columns($conn) {
+        return db_column_exists($conn, 'exam_attempts', 'term_id')
+            && db_column_exists($conn, 'exam_attempts', 'mistakes_count');
+    }
+}
+
+if (!function_exists('ensure_exam_submit_schema')) {
+    /**
+     * Idempotently add the columns the exam submit flow reads/writes, so a
+     * never-migrated database (e.g. missing exam_answers.audio_file) does not
+     * crash student/submit_exam.php with a confusing HTML error page.
+     * Returns true when every required column is present afterwards.
+     */
+    function ensure_exam_submit_schema($conn) {
+        $answers_cols = [
+            'day_no'      => 'TINYINT NULL AFTER to_verse',
+            'status'      => "ENUM('pending','submitted') NOT NULL DEFAULT 'pending' AFTER day_no",
+            'answered_at' => 'DATETIME NULL AFTER status',
+            'audio_file'  => 'VARCHAR(255) NULL AFTER answered_at',
+        ];
+        foreach ($answers_cols as $col => $def) {
+            if (!db_column_exists($conn, 'exam_answers', $col)) {
+                try {
+                    $conn->query("ALTER TABLE exam_answers ADD COLUMN `$col` $def");
+                } catch (Throwable $e) {
+                    error_log('ensure_exam_submit_schema failed (exam_answers.' . $col . '): ' . $e->getMessage());
+                    return false;
+                }
+            }
+        }
+        $attempts_cols = [
+            'term_id'       => 'INT NULL AFTER student_id',
+            'question_count' => 'TINYINT NULL AFTER mistakes_count',
+            'total_days'     => 'TINYINT NULL AFTER question_count',
+            'day_no'         => 'TINYINT NOT NULL DEFAULT 1 AFTER total_days',
+        ];
+        foreach ($attempts_cols as $col => $def) {
+            if (!db_column_exists($conn, 'exam_attempts', $col)) {
+                try {
+                    $conn->query("ALTER TABLE exam_attempts ADD COLUMN `$col` $def");
+                } catch (Throwable $e) {
+                    error_log('ensure_exam_submit_schema failed (exam_attempts.' . $col . '): ' . $e->getMessage());
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+}
+
+if (!function_exists('exam_tier_schema_ready')) {
+    /**
+     * True when the tiered (3/7/10 question, multi-day) exam schema is present:
+     * exam_attempts.question_count / total_days / day_no and
+     * exam_answers.day_no / status. Pages that query these columns should gate
+     * on this so a pre-migration database never crashes.
+     */
+    function exam_tier_schema_ready($conn) {
+        return db_column_exists($conn, 'exam_attempts', 'question_count')
+            && db_column_exists($conn, 'exam_attempts', 'total_days')
+            && db_column_exists($conn, 'exam_attempts', 'day_no')
+            && db_column_exists($conn, 'exam_answers', 'day_no')
+            && db_column_exists($conn, 'exam_answers', 'status');
+    }
+}
+
+if (!function_exists('exam_criteria_html')) {
+    /**
+     * Acceptances criteria shown on the student exam page.
+     */
+    function exam_criteria_html() {
+        return '<div class="card card-gold animate-rise">
+            <div class="card-title"><h3 style="margin-top:0;">' . ui_icon('check-circle', 18) . ' Acceptance Criteria</h3></div>
+            <p class="small" style="margin:0 0 6px;">Your recitation will be reviewed against this rule:</p>
+            <ul class="small" style="margin:0;padding-left:20px;">
+                <li><strong>Maximum mistakes allowed: 3</strong> across your entire recitation.</li>
+                <li>If more than <strong>3 mistakes</strong> are found, you must <strong>retake</strong> this term&#8217;s examination.</li>
+            </ul>
+        </div>';
+    }
+}
+
+if (!function_exists('quran_completion_percent')) {
+    /**
+     * Verse-based Qur'an completion percentage for a student.
+     * Counts only COMPLETED plans: for each completed surah the student is
+     * credited with the whole surah (MAX of tracked completed_verses and the
+     * surah's total), so admin-flagged completions that never tracked verses
+     * still count fully. Denominator = total verses of the entire Qur'an.
+     * Returns 0 when surahs/student_learning data is unavailable.
+     */
+    function quran_completion_percent($conn, $student_id) {
+        $student_id = (int)$student_id;
+        try {
+            $res = $conn->query("
+                SELECT s.total_verses, sl.completed_verses
+                FROM student_learning sl
+                JOIN surahs s ON s.id = sl.surah_id
+                WHERE sl.student_id = $student_id AND sl.status = 'completed'
+            ");
+            $done = 0;
+            while ($r = $res->fetch_assoc()) {
+                $total = (int)($r['total_verses'] ?? 0);
+                $comp  = (int)($r['completed_verses'] ?? 0);
+                $done += max($total, $comp);
+            }
+        } catch (Throwable $e) {
+            return 0;
+        }
+
+        try {
+            $all = (int)$conn->query("SELECT COALESCE(SUM(total_verses),0) t FROM surahs")->fetch_assoc()['t'];
+        } catch (Throwable $e) {
+            $all = 0;
+        }
+        if ($all <= 0) return 0;
+        return (int)round(($done / $all) * 100);
+    }
+}
+
+if (!function_exists('student_has_graduated')) {
+    /**
+     * True when the student has completed every surah of the Glorious Qur'an
+     * (a completed student_learning row exists for each surah). Used to count
+     * graduates and to trigger graduation / account lifecycle actions.
+     */
+    function student_has_graduated($conn, $student_id) {
+        $student_id = (int)$student_id;
+        try {
+            $total = (int)$conn->query("SELECT COUNT(*) c FROM surahs")->fetch_assoc()['c'];
+            if ($total <= 0) return false;
+            $done = (int)$conn->query("
+                SELECT COUNT(DISTINCT sl.surah_id) c
+                FROM student_learning sl
+                WHERE sl.student_id = $student_id AND sl.status = 'completed'
+            ")->fetch_assoc()['c'];
+            return $done >= $total;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('mark_graduated_if_due')) {
+    /**
+     * Record the moment a student first reaches 100% completion. Idempotent:
+     * only sets users.graduated_at the first time. Safe if the column/migration
+     * is missing (returns false without crashing).
+     */
+    function mark_graduated_if_due($conn, $student_id) {
+        if (!student_has_graduated($conn, $student_id)) return false;
+        $student_id = (int)$student_id;
+        try {
+            $r = $conn->query("SELECT graduated_at FROM users WHERE id = $student_id")->fetch_assoc();
+            if ($r && empty($r['graduated_at'])) {
+                $conn->query("UPDATE users SET graduated_at = NOW() WHERE id = $student_id");
+                return true;
+            }
+        } catch (Throwable $e) {
+            /* users.graduated_at not yet migrated — ignore */
+        }
+        return false;
+    }
+}
+
+if (!function_exists('purge_graduated_accounts')) {
+    /**
+     * Hard-delete every student account that graduated more than 7 days ago,
+     * together with all of their records and uploaded media. Each step is
+     * guarded so a partial schema never crashes the site.
+     */
+    function purge_graduated_accounts($conn) {
+        try {
+            $res = $conn->query("
+                SELECT id FROM users
+                WHERE role = 'student' AND graduated_at IS NOT NULL
+                  AND graduated_at < NOW() - INTERVAL 7 DAY
+            ");
+            $ids = [];
+            while ($r = $res->fetch_assoc()) $ids[] = (int)$r['id'];
+            if (empty($ids)) return 0;
+            $ids_str = implode(',', $ids);
+
+            /* Remove exam + profile media from disk */
+            try {
+                $audio = $conn->query("SELECT audio_file FROM exam_answers WHERE attempt_id IN (SELECT id FROM exam_attempts WHERE student_id IN ($ids_str))");
+                $base = dirname(__DIR__, 2) . '/uploads/exam_audio/';
+                while ($r = $audio->fetch_assoc()) {
+                    $f = $base . basename((string)($r['audio_file'] ?? ''));
+                    if ($f !== $base && is_file($f)) @unlink($f);
+                }
+            } catch (Throwable $e) { /* ignore */ }
+            try {
+                $pics = $conn->query("SELECT profile_image FROM users WHERE id IN ($ids_str)");
+                $picBase = dirname(__DIR__, 2) . '/uploads/profile_pics/';
+                while ($r = $pics->fetch_assoc()) {
+                    $n = (string)($r['profile_image'] ?? '');
+                    if ($n !== '' && $n !== 'default.png') {
+                        $f = $picBase . basename($n);
+                        if (is_file($f)) @unlink($f);
+                    }
+                }
+            } catch (Throwable $e) { /* ignore */ }
+
+            /* Remove every table that references a student by student_id */
+            foreach (['student_learning', 'student_recitation', 'exam_answers', 'exam_attempts',
+                      'certificates', 'announcement_reads', 'student_invites',
+                      'admin_audio', 'donations', 'suggestions', 'feedback'] as $t) {
+                try {
+                    $conn->query("DELETE FROM `$t` WHERE student_id IN ($ids_str)");
+                } catch (Throwable $e) { /* missing table/column — ignore */ }
+            }
+
+            $conn->query("DELETE FROM users WHERE id IN ($ids_str)");
+            return count($ids);
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+}
+
+if (!function_exists('exam_tier_info')) {
+    /**
+     * The tier the student's exam falls into, based on Qur'an completion:
+     *   < 20%      -> 3 questions, 1 day (no day choice)
+     *   20% – 50%  -> 7 questions, up to 3 days
+     *   > 50%      -> 10 questions, up to 5 days
+     * Returns ['percent'=>N, 'questions'=>N, 'max_days'=>N, 'label'=>string].
+     */
+    function exam_tier_info($conn, $student_id) {
+        $percent = quran_completion_percent($conn, $student_id);
+        if ($percent > 50) {
+            return ['percent' => $percent, 'questions' => 10, 'max_days' => 5, 'label' => 'Advanced'];
+        }
+        if ($percent >= 20) {
+            return ['percent' => $percent, 'questions' => 7, 'max_days' => 3, 'label' => 'Intermediate'];
+        }
+        return ['percent' => $percent, 'questions' => 3, 'max_days' => 1, 'label' => 'Foundation'];
+    }
+}
+
+if (!function_exists('exam_generate_questions')) {
+    /**
+     * Generate up to $count random recitation questions from the student's
+     * completed surahs. Each question is a random 8–15 verse window. Long
+     * surahs can yield several windows; if completed material is too small,
+     * fewer questions are returned (the caller stores the ACTUAL count).
+     */
+    function exam_generate_questions($conn, $student_id, $count) {
+        $count = (int)$count;
+        if ($count <= 0) return [];
+
+        $surahs = [];
+        try {
+            $res = $conn->query("
+                SELECT s.id, s.name_en, s.name_ar, s.total_verses
+                FROM student_learning sl
+                JOIN surahs s ON s.id = sl.surah_id
+                WHERE sl.student_id = " . (int)$student_id . " AND sl.status = 'completed'
+                ORDER BY s.id ASC
+            ");
+            while ($r = $res->fetch_assoc()) $surahs[] = $r;
+        } catch (Throwable $e) {
+            return [];
+        }
+        if (!$surahs) return [];
+
+        /* Pass 1 — walk every completed surah into non-overlapping windows. */
+        $candidates = [];
+        foreach ($surahs as $s) {
+            $total = (int)$s['total_verses'];
+            if ($total < 1) continue;
+            $pos = 1;
+            $guard = 0;
+            while ($pos <= $total && $guard < 100) {
+                $guard++;
+                $max_range = min(15, $total - $pos + 1);
+                $range = ($max_range >= 8) ? rand(8, $max_range) : $max_range;
+                $to = min($pos + $range - 1, $total);
+                /* Absorb a trailing tail smaller than the minimum window size
+                   into this window, so a surah never ends in a degenerate
+                   question like "verse 176 to 176". */
+                if ($total - $to < 8) {
+                    $to = $total;
+                }
+                if (($to - $pos + 1) >= 8) {
+                    $candidates[] = [
+                        'surah_id' => (int)$s['id'],
+                        'name_en'  => $s['name_en'],
+                        'name_ar'  => $s['name_ar'],
+                        'from'     => $pos,
+                        'to'       => $to,
+                    ];
+                }
+                $pos = $to + 1;
+            }
+        }
+        shuffle($candidates);
+
+        $questions = array_slice($candidates, 0, $count);
+
+        /* Pass 2 — if still short, fill with random windows anywhere in completed surahs. */
+        $tries = 0;
+        while (count($questions) < $count && $tries < 200) {
+            $tries++;
+            $s = $surahs[array_rand($surahs)];
+            $total = (int)$s['total_verses'];
+            if ($total < 1) continue;
+            $max_range = min(15, $total);
+            $range = ($max_range >= 8) ? rand(8, $max_range) : $max_range;
+            $max_start = $total - $range + 1;
+            if ($max_start < 1) $max_start = 1;
+            $from = rand(1, $max_start);
+            $to = min($from + $range - 1, $total);
+            if ($to <= $from || ($to - $from + 1) < 8) continue;
+            $dup = false;
+            foreach ($questions as $qq) {
+                if ($qq['surah_id'] === (int)$s['id'] && $qq['from'] === $from && $qq['to'] === $to) { $dup = true; break; }
+            }
+            if ($dup) continue;
+            $questions[] = [
+                'surah_id' => (int)$s['id'],
+                'name_en'  => $s['name_en'],
+                'name_ar'  => $s['name_ar'],
+                'from'     => $from,
+                'to'       => $to,
+            ];
+        }
+
+        return $questions;
+    }
+}
+
+if (!function_exists('exam_distribute_days')) {
+    /**
+     * Assign each question in $questions a day (1..$total_days) as evenly as
+     * possible (floor + remainder). Returns the same array with 'day_no' added.
+     * Example: 7 questions / 3 days -> 3+2+2 · 10 / 5 -> 2+2+2+2+2.
+     */
+    function exam_distribute_days($questions, $total_days) {
+        $total_days = max(1, (int)$total_days);
+        $q = count($questions);
+        if ($q === 0) return [];
+
+        $base = intdiv($q, $total_days);
+        $rem  = $q % $total_days;
+        $cap  = [];
+        $acc  = 0;
+        for ($d = 1; $d <= $total_days; $d++) {
+            $acc += $base + ($d <= $rem ? 1 : 0);
+            $cap[$d] = $acc;
+        }
+
+        foreach ($questions as $i => $qq) {
+            $day = 1;
+            foreach ($cap as $d => $c) {
+                if ($i < $c) { $day = $d; break; }
+            }
+            $questions[$i]['day_no'] = $day;
+        }
+        return $questions;
+    }
+}
+
+if (!function_exists('exam_questions_remaining_in_days')) {
+    /**
+     * How many of the given questions are still pending for a draft attempt,
+     * optionally scoped to a single day. Used for progress display.
+     */
+    function exam_questions_remaining_in_days($conn, $attempt_id, $day_no = null) {
+        $attempt_id = (int)$attempt_id;
+        $where = $day_no !== null ? "AND day_no = " . (int)$day_no : '';
+        try {
+            $res = $conn->query("SELECT COUNT(*) c FROM exam_answers WHERE attempt_id = $attempt_id AND status = 'pending' $where");
+            return (int)$res->fetch_assoc()['c'];
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+}
+
+if (!function_exists('applications_pending_count')) {
+    /**
+     * Count of public applications still in the early pipeline
+     * (pending / contacted / payment_pending). Used for the admin sidebar badge.
+     */
+    function applications_pending_count($conn) {
+        try {
+            $res = $conn->query("SELECT COUNT(*) c FROM applications WHERE status IN ('pending','contacted','payment_pending')");
+            return (int)$res->fetch_assoc()['c'];
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+}
+
+if (!function_exists('holiday_info')) {
+    /**
+     * Return the holiday mode settings as an array.
+     * Safe to call even before app_settings exists (returns defaults).
+     */
+    function holiday_info($conn) {
+        return [
+            'mode'             => setting($conn, 'holiday_mode', 'off'),
+            'started_at'       => setting($conn, 'holiday_started_at', ''),
+            'duration_days'    => (int)setting($conn, 'holiday_duration_days', 0),
+            'ends_at'          => setting($conn, 'holiday_ends_at', ''),
+            'resumption_date'  => setting($conn, 'holiday_resumption_date', ''),
+            'message'          => setting($conn, 'holiday_message', ''),
+        ];
+    }
+}
+
+if (!function_exists('holiday_mode_on')) {
+    /**
+     * True when the admin has activated holiday mode and it has not expired.
+     * Auto-deactivates itself once the configured duration has been reached
+     * (when holiday_ends_at is in the past). Safe to call anytime.
+     */
+    function holiday_mode_on($conn) {
+        $info = holiday_info($conn);
+        if ($info['mode'] !== 'on') return false;
+
+        if ($info['ends_at'] !== '' && strtotime($info['ends_at']) <= time()) {
+            try {
+                $conn->query("INSERT INTO app_settings (setting_key, setting_value) VALUES ('holiday_mode', 'off')
+                              ON DUPLICATE KEY UPDATE setting_value = 'off'");
+            } catch (Throwable $e) { /* ignore */ }
+            return false;
+        }
+        return true;
+    }
+}
+
+if (!function_exists('holiday_days_left')) {
+    /**
+     * Whole days remaining until the holiday ends (0 when over/missing).
+     * Returns null when holiday mode is not active or no end date is set.
+     */
+    function holiday_days_left($conn) {
+        $info = holiday_info($conn);
+        if ($info['mode'] !== 'on' || $info['ends_at'] === '') return null;
+        $left = (int)ceil((strtotime($info['ends_at']) - time()) / 86400);
+        return $left < 0 ? 0 : $left;
+    }
+}
+
+if (!function_exists('holiday_resumption_label')) {
+    /**
+     * The date learning resumes: admin-specified resumption date if set,
+     * otherwise the day the holiday ends.
+     */
+    function holiday_resumption_label($conn) {
+        $info = holiday_info($conn);
+        if ($info['resumption_date'] !== '') {
+            $t = strtotime($info['resumption_date']);
+            return $t ? date('D, d M Y', $t) : $info['resumption_date'];
+        }
+        if ($info['ends_at'] !== '') {
+            $t = strtotime($info['ends_at']);
+            return $t ? date('D, d M Y', $t) : '';
+        }
+        return '';
+    }
+}
+
+if (!function_exists('holiday_allowed_student_page')) {
+    /**
+     * Student pages that stay reachable while holiday mode is on.
+     * Every other student page is redirected to student/holiday.php.
+     * $page must be a bare filename (e.g. 'certificate.php').
+     */
+    function holiday_allowed_student_page($page) {
+        $allowed = [
+            'holiday.php',
+            'certificate.php',
+            'exam_result.php',
+            'invite.php',
+            'donate.php',
+            'fees.php',
+            'announcements.php',
+            'suggestions.php',
+            'profile.php',
+            'update_profile.php',
+            'logout.php',
+        ];
+        return in_array($page, $allowed, true);
+    }
+}
+
+if (!function_exists('student_referral_code')) {
+    /**
+     * Return (and lazily create if needed) the student's unique referral code.
+     * Format: LMA-<year>-<zero-padded user id>.
+     */
+    function student_referral_code($conn, $student_id) {
+        $student_id = (int)$student_id;
+        try {
+            $stmt = $conn->prepare("SELECT referral_code FROM users WHERE id = ? LIMIT 1");
+            $stmt->bind_param("i", $student_id);
+            $stmt->execute();
+            $r = $stmt->get_result()->fetch_assoc();
+            if ($r && !empty($r['referral_code'])) return $r['referral_code'];
+
+            $code = 'LMA-' . date('Y') . '-' . str_pad($student_id, 4, '0', STR_PAD_LEFT);
+            $conn->query("UPDATE users SET referral_code = '" . $conn->real_escape_string($code) . "' WHERE id = $student_id");
+            return $code;
+        } catch (Throwable $e) {
+            return 'LMA-' . date('Y') . '-' . str_pad($student_id, 4, '0', STR_PAD_LEFT);
+        }
+    }
+}
+
+if (!function_exists('next_term_label')) {
+    /**
+     * Human label for the NEXT academy term (the term after the current one).
+     * e.g. "Term 3 (Sep – Dec)" — and rolls over to the next school year.
+     */
+    function next_term_label() {
+        $cur  = current_term_no();
+        $next = $cur === 3 ? 1 : $cur + 1;
+        $year = (int)date('Y');
+        if ($cur === 3) $year += 1;
+        return term_date_windows($year)[$next]['name'];
+    }
+}
+
+if (!function_exists('reward_invite')) {
+    /**
+     * Mark a friend invite as rewarded and grant the inviting student a 15%
+     * discount on their NEXT term fees. Only call this once the invited friend
+     * has registered AND started learning.
+     */
+    function reward_invite($conn, $invite_id) {
+        $invite_id = (int)$invite_id;
+        if ($invite_id <= 0) return;
+        try {
+            $res = $conn->query("SELECT student_id FROM student_invites WHERE id = $invite_id LIMIT 1");
+            if (!$res || $res->num_rows === 0) return;
+            $inviter_id = (int)$res->fetch_assoc()['student_id'];
+            if ($inviter_id <= 0) return;
+
+            $conn->query("UPDATE student_invites SET status = 'rewarded', rewarded_at = NOW() WHERE id = $invite_id");
+
+            $term = next_term_label();
+            $conn->query("UPDATE users
+                          SET next_term_discount = 1, discount_term = '" . $conn->real_escape_string($term) . "'
+                          WHERE id = $inviter_id");
+        } catch (Throwable $e) { /* ignore */ }
+    }
+}
+
+if (!function_exists('reward_inviter_for_joined_student')) {
+    /**
+     * When a student who was invited by a friend starts learning, find the
+     * matching 'joined' invite and reward the inviter with the discount.
+     */
+    function reward_inviter_for_joined_student($conn, $joined_student_id) {
+        $joined_student_id = (int)$joined_student_id;
+        if ($joined_student_id <= 0) return;
+        try {
+            $stmt = $conn->prepare("SELECT id FROM student_invites WHERE joined_student_id = ? AND status = 'joined' ORDER BY id DESC LIMIT 1");
+            $stmt->bind_param("i", $joined_student_id);
+            $stmt->execute();
+            $r = $stmt->get_result()->fetch_assoc();
+            if ($r) reward_invite($conn, $r['id']);
+        } catch (Throwable $e) { /* ignore */ }
+    }
+}
+
+if (!function_exists('csrf_token')) {
+    function csrf_token() {
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf_token'];
+    }
+}
+
+if (!function_exists('csrf_field')) {
+    function csrf_field() {
+        return '<input type="hidden" name="csrf_token" value="' . csrf_token() . '">';
+    }
+}
+
+if (!function_exists('csrf_verify')) {
+    function csrf_verify() {
+        $t = $_POST['csrf_token'] ?? '';
+        if ($t === '' || !hash_equals($_SESSION['csrf_token'] ?? '', $t)) {
+            http_response_code(403);
+            $ajax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+                && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+            if ($ajax) {
+                echo 'Invalid or expired session. Please refresh the page and try again.';
+                exit;
+            }
+            ui_message_page('danger', 'Invalid Request', 'Invalid CSRF token. Please go back, refresh the page and try again.', '', '', 'close');
+        }
+    }
+}

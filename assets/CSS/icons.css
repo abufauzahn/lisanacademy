@@ -1,0 +1,26 @@
+/* =========================================================
+   LISANUN MUBEEN ACADEMY — ICONS
+   Inline SVG sizing & alignment helpers
+   ========================================================= */
+
+.nav-ico svg{display:block;margin:0 auto}
+.brand-mark svg{display:block}
+.sidebar-toggle svg,.sidebar-close svg{display:block}
+.btn svg{display:inline-block;vertical-align:-2px;flex:none}
+
+.stat-ico svg{display:block;width:22px;height:22px}
+.ac-ico svg{display:block;width:26px;height:26px}
+.live-icon svg{display:block;width:34px;height:34px}
+.empty-icon svg{width:44px;height:44px;margin:0 auto;display:block}
+
+.alert svg{flex:none;margin-top:2px}
+.text-muted svg{vertical-align:-2px}
+
+.ico{display:inline-flex;align-items:center;justify-content:center}
+.ico svg{display:block}
+
+.btn-sm svg{vertical-align:-1px}
+
+@media (max-width: 480px){
+  .empty-icon svg{width:36px;height:36px}
+}

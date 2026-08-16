@@ -1,0 +1,15 @@
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Disable directory listing
+Options -Indexes
+
+# Block direct access to sensitive files
+<FilesMatch "\.(sql|md|ini|log|json|sh)$">
+  Require all denied
+</FilesMatch>
+
+# Block direct web access to config / tmp folders
+RewriteRule ^config/ - [F,L]
+RewriteRule ^tmp/ - [F,L]

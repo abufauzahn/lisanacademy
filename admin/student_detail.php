@@ -1,0 +1,121 @@
+<?php
+require_once __DIR__ . '/../config/security/helpers.php';
+require_once __DIR__ . '/../auth/auth_check.php';
+require_once __DIR__ . '/../config/db.php';
+require_role('admin');
+
+$student_id = (int)($_GET['id'] ?? 0);
+if ($student_id <= 0) exit('Invalid student ID');
+
+/* ================= STUDENT ================= */
+$stmt = $conn->prepare("
+  SELECT id, name, email, suspended, blocked
+  FROM users
+  WHERE id=? AND role='student'
+");
+$stmt->bind_param("i", $student_id);
+$stmt->execute();
+$student = $stmt->get_result()->fetch_assoc();
+if (!$student) exit('Student not found');
+
+/* ========== ACTIVENESS ========== */
+$active = $conn->query("
+  SELECT COUNT(*) c
+  FROM lessons
+  WHERE student_id=$student_id
+")->fetch_assoc()['c'];
+
+/* ========== COMPLETED SURAHS ========== */
+$completed = [];
+$res = $conn->query("
+  SELECT sl.surah_id
+  FROM student_learning sl
+  WHERE sl.student_id=$student_id
+  AND sl.status='completed'
+");
+while ($r = $res->fetch_assoc()) {
+    $completed[] = (int)$r['surah_id'];
+}
+
+/* ========== ALL SURAHS ========== */
+$surahs = $conn->query("SELECT id, name_en FROM surahs ORDER BY id");
+?>
+<link rel="stylesheet" href="/assets/CSS/base.css">
+<link rel="stylesheet" href="/assets/CSS/components.css">
+
+<div style="padding:6px 0;">
+
+    <h2 style="margin:0 0 4px;"><?=htmlspecialchars($student['name'])?></h2>
+    <p class="small text-muted" style="margin:0 0 12px;"><?=htmlspecialchars($student['email'])?></p>
+    <span class="badge badge-green">Activeness: <?=$active?> lesson requests</span>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0;">
+
+    <!-- Edit Name (only admin can change a student's name) -->
+    <div class="form-group">
+        <label class="form-label">Edit Student Name</label>
+        <form method="POST" action="update_student_name.php" style="display:flex;gap:8px;align-items:center;">
+            <?= csrf_field() ?>
+            <input type="hidden" name="student_id" value="<?=$student_id?>">
+            <input class="form-input" type="text" name="name" value="<?=htmlspecialchars($student['name'])?>" required style="flex:1;min-width:0;">
+            <button class="btn btn-sm" type="submit"><?= ui_icon('check', 15) ?> Save Name</button>
+        </form>
+        <p class="small text-muted" style="margin:6px 0 0;">Only request/change this when the student asks.</p>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0;">
+
+    <!-- Completed Surahs -->
+    <div class="form-group">
+        <label class="form-label">Completed Surahs</label>
+        <div class="panel" style="max-height:180px;overflow-y:auto;margin:0;">
+            <form method="POST" action="update_completed_surahs.php">
+                <input type="hidden" name="student_id" value="<?=$student_id?>">
+                <?= csrf_field() ?>
+                <?php while($s = $surahs->fetch_assoc()): ?>
+                    <label style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:.9rem;cursor:pointer;">
+                        <input type="checkbox"
+                               name="surahs[]"
+                               value="<?=$s['id']?>"
+                               style="accent-color:var(--emerald-600);"
+                               <?=in_array($s['id'],$completed)?'checked':''?>>
+                        <?=htmlspecialchars($s['name_en'])?>
+                    </label>
+                <?php endwhile; ?>
+                <button class="btn btn-sm btn-block" style="margin-top:10px;">Save Completed Surahs</button>
+            </form>
+        </div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0;">
+
+    <!-- Access Control -->
+    <div class="form-group" style="display:flex;gap:10px;flex-wrap:wrap;">
+        <form method="POST" action="suspend_student.php" onsubmit="return confirm('Toggle suspend for this student?');" style="flex:1;min-width:150px;">
+            <input type="hidden" name="id" value="<?=$student_id?>">
+            <?= csrf_field() ?>
+            <button class="btn btn-block <?= $student['suspended'] ? '' : 'btn-danger' ?>" style="<?= $student['suspended'] ? 'background:#7a5a15;' : '' ?>">
+                <?= $student['suspended'] ? 'Unsuspend Student' : 'Suspend Student' ?>
+            </button>
+        </form>
+
+        <form method="POST" action="block_student.php" onsubmit="return confirm('Toggle block for this student?');" style="flex:1;min-width:150px;">
+            <input type="hidden" name="id" value="<?=$student_id?>">
+            <?= csrf_field() ?>
+            <button class="btn btn-block <?= $student['blocked'] ? '' : 'btn-danger' ?>" style="<?= $student['blocked'] ? 'background:#7c5a15;' : '' ?>">
+                <?= $student['blocked'] ? 'Unblock Student' : 'Block (Fees)' ?>
+            </button>
+        </form>
+    </div>
+
+    <form method="POST" action="delete_student.php"
+          onsubmit="return confirm('Warning: this will permanently delete this student and ALL their data. Continue?');" style="margin-top:14px;">
+        <input type="hidden" name="id" value="<?=$student_id?>">
+        <?= csrf_field() ?>
+        <button class="btn btn-danger btn-block"><?= ui_icon('trash', 16) ?> Delete Student (Permanent)</button>
+    </form>
+
+    <a class="btn btn-gold btn-block" style="margin-top:14px;" href="/student/certificate.php?id=<?=$student_id?>" target="_blank">
+        <?= ui_icon('gem', 16) ?> View Student Certificate
+    </a>
+</div>

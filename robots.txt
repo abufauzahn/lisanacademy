@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Private / authenticated areas
+Disallow: /auth/
+Disallow: /admin/
+Disallow: /config/
+Disallow: /student/
+Disallow: /tmp/
+Disallow: /uploads/

@@ -1,0 +1,285 @@
+/* =========================================================
+   LISANUN MUBEEN ACADEMY — APP LAYOUT
+   sidebar shell, dashboard cards, profile, live card
+   ========================================================= */
+
+.app{display:flex;min-height:100vh}
+
+/* ---------------- Sidebar ---------------- */
+.sidebar{
+  position:fixed;
+  inset:0 auto 0 0;
+  width:var(--sidebar-w);
+  z-index:100;
+  display:flex;
+  flex-direction:column;
+  background:
+    radial-gradient(360px 200px at -30% -10%, rgba(201,162,75,.22), transparent 60%),
+    linear-gradient(180deg, var(--emerald-950) 0%, var(--emerald-900) 60%, #054436 100%);
+  color:#fff;
+  box-shadow:var(--shadow-lg);
+  transform:translateX(0);
+  transition:transform .28s cubic-bezier(.22,1,.36,1);
+}
+.sidebar-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:20px 22px;
+  border-bottom:1px solid rgba(255,255,255,.12);
+}
+.brand-mark{
+  width:42px;height:42px;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--gold-light),var(--gold));
+  color:var(--emerald-950);
+  font-size:1.3rem;
+  box-shadow:0 6px 16px rgba(0,0,0,.25);
+}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:.98rem;line-height:1.2}
+.brand-name small{display:block;font-weight:400;font-size:.72rem;color:var(--gold-light);letter-spacing:.06em;text-transform:uppercase}
+.sidebar-close{display:none;background:none;border:none;color:#d1fae5;font-size:1.2rem;cursor:pointer;margin-left:auto;padding:4px}
+
+.sidebar-nav{padding:16px 14px;overflow-y:auto;flex:1}
+.nav-section{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.45);padding:16px 12px 8px}
+.nav-link{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:11px 12px;
+  margin-bottom:3px;
+  border-radius:11px;
+  color:rgba(255,255,255,.82);
+  font-weight:500;
+  font-size:.92rem;
+  transition:background .15s ease, color .15s ease, transform .15s ease;
+}
+.nav-link .nav-ico{width:22px;text-align:center;font-size:1rem}
+.nav-link:hover{background:rgba(255,255,255,.10);color:#fff;transform:translateX(2px)}
+.nav-link.active{
+  background:linear-gradient(135deg,var(--emerald-600),var(--emerald-500));
+  color:#fff;
+  box-shadow:var(--shadow-green);
+}
+.nav-link.active .nav-ico{filter:drop-shadow(0 1px 3px rgba(0,0,0,.2))}
+.nav-link .nav-badge{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:20px;
+  height:20px;
+  padding:0 6px;
+  border-radius:999px;
+  background:var(--gold);
+  color:#0b1220;
+  font-size:.68rem;
+  font-weight:800;
+}
+
+.sidebar-footer{
+  padding:16px 20px;
+  border-top:1px solid rgba(255,255,255,.12);
+  font-size:.8rem;
+  color:rgba(255,255,255,.6);
+}
+
+/* Overlay (mobile) */
+.sidebar-overlay{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(2,44,34,.5);
+  z-index:55;
+}
+
+/* ---------------- Main area ---------------- */
+.main-area{
+  flex:1;
+  margin-left:var(--sidebar-w);
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  min-height:100vh;
+}
+.main-content{
+  padding:26px 26px 24px;
+  flex:1;
+  animation:mainIn .4s cubic-bezier(.22,1,.36,1);
+}
+@keyframes mainIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---------------- Dashboard widgets ---------------- */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-bottom:24px}
+.stat-card{
+  position:relative;
+  overflow:hidden;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:22px 80px 22px 22px;
+  box-shadow:var(--shadow);
+  transition:transform .2s ease, box-shadow .2s ease;
+  display:block;
+  color:inherit;
+}
+.stat-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-md);color:inherit}
+.stat-card .stat-label{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:8px;word-break:break-word}
+.stat-card .stat-value{font-family:var(--font-display);font-weight:800;font-size:2rem;line-height:1;color:var(--text);word-break:break-word}
+.stat-card .stat-sub{font-size:.84rem;color:var(--text-muted);margin-top:8px;word-break:break-word}
+.stat-card .stat-value .small{font-size:.85rem}
+.stat-card .stat-ico{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.15rem}
+.stat-green .stat-ico{background:var(--emerald-100)}
+.stat-gold .stat-ico{background:linear-gradient(135deg,#f1dfae,#e7c87c)}
+.stat-blue .stat-ico{background:var(--info-bg)}
+.stat-red .stat-ico{background:var(--danger-bg)}
+.stat-card a,.stat-card a:hover{color:inherit;text-decoration:none}
+.stat-card.top.gold{
+  background:linear-gradient(135deg,var(--emerald-900),var(--emerald-700));
+  color:#fff;
+}
+.stat-card.top.gold .stat-value,.stat-card.top.gold .stat-label{color:#fff}
+.stat-card.top.gold .stat-value{font-size:1.6rem}
+.stat-pill{display:inline-block;margin-top:6px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);color:#fff;padding:4px 12px;border-radius:var(--radius-pill);font-weight:700;font-size:.85rem}
+
+/* Action cards */
+.action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+.action-card{
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:6px;
+  padding:26px;
+  border-radius:var(--radius);
+  color:#fff;
+  font-weight:600;
+  text-decoration:none;
+  box-shadow:var(--shadow-md);
+  transition:transform .2s ease, box-shadow .2s ease;
+}
+.action-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);color:#fff}
+.action-card .ac-ico{font-size:1.7rem;margin-bottom:4px}
+.action-card .ac-title{font-family:var(--font-display);font-weight:700;font-size:1.02rem}
+.action-card .ac-sub{font-size:.85rem;opacity:.92;font-weight:400}
+.action-card .ac-badge{position:absolute;top:16px;right:16px}
+.action-emerald{background:linear-gradient(135deg,var(--emerald-800),var(--emerald-600))}
+.action-forest{background:linear-gradient(135deg,#0f3d2e,#1f6f53)}
+.action-gold{background:linear-gradient(135deg,var(--gold-deep),var(--gold))}
+.action-blue{background:linear-gradient(135deg,#1d4ed8,#3b82f6)}
+.action-red{background:linear-gradient(135deg,#b91c1c,#ef4444)}
+
+/* Quran companion / star card */
+.quran-star-card{
+  position:relative;
+  overflow:hidden;
+  cursor:pointer;
+  margin-bottom:24px;
+  padding:30px;
+  border-radius:var(--radius-lg);
+  background:linear-gradient(120deg,#0b3d2e 0%,#075549 50%,#0e7a5a 100%);
+  color:#fff;
+  box-shadow:var(--shadow-green);
+  transition:transform .25s ease, box-shadow .25s ease;
+}
+.quran-star-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.quran-star-overlay{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(560px 200px at 100% 0%, rgba(227,201,139,.30), transparent 62%),
+    radial-gradient(400px 260px at 0% 100%, rgba(16,185,129,.25), transparent 60%);
+}
+.quran-star-content{position:relative;z-index:1;text-align:center}
+.quran-star-content h3{margin:0 0 10px;color:#fff;font-size:1.15rem}
+.quran-star-content .big{font-family:var(--font-display);font-weight:700;font-size:1.5rem;color:var(--gold-light);margin:6px 0}
+.quran-star-content .quran-reminder{font-size:1.02rem;color:rgba(255,255,255,.95);max-width:640px;margin:6px auto;font-style:italic}
+.quran-star-content span{display:block;margin-top:8px;font-size:.86rem;color:rgba(255,255,255,.8)}
+
+/* Live recitation card */
+.live-recitation-card{transition:transform .25s ease, box-shadow .25s ease}
+.live-recitation-card:hover{transform:translateY(-4px)}
+.live-recitation-card.unlocked{border-top:5px solid var(--gold);}
+.live-recitation-card.locked{opacity:.85}
+.live-icon{font-size:2.2rem;animation:breathe 2.4s ease infinite;display:inline-block}
+.live-recitation-card.locked .live-icon{animation:none;opacity:.55}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.live-btn{width:100%;margin-top:16px;font-family:var(--font-display);font-weight:700;font-size:.95rem;padding:12px 18px;border:none;border-radius:var(--radius-sm);cursor:pointer;background:linear-gradient(135deg,var(--gold-deep),var(--gold));color:#fff;box-shadow:var(--shadow-gold);transition:transform .15s ease}
+.live-btn:hover{transform:translateY(-2px)}
+.live-btn:disabled{opacity:.5;pointer-events:none;box-shadow:none}
+.live-recitation-card.unlocked .live-btn{background:linear-gradient(135deg,var(--gold-deep),var(--gold))}
+
+/* Profile */
+.profile-head{text-align:center;padding:10px 0 6px}
+.profile-img{
+  width:120px;height:120px;border-radius:50%;object-fit:cover;
+  border:4px solid transparent;background:linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,var(--gold),var(--emerald-600)) border-box;
+  box-shadow:var(--shadow-md);margin:0 auto 14px;
+}
+
+/* Recording status */
+.recording-status{color:var(--danger);font-weight:700;margin-top:10px;display:flex;align-items:center;gap:6px}
+.recording-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);animation:breathe 1s infinite}
+
+/* Plan card primary action (My Learning) */
+.plan-action{
+  margin-top:24px;
+  padding-top:22px;
+  border-top:1px dashed var(--border);
+}
+.plan-action .btn{width:100%}
+
+/* ---------------- Responsive ---------------- */
+@media (max-width: 1024px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar-overlay.open{display:block}
+  .sidebar.open{transform:translateX(0)}
+  .main-area{margin-left:0}
+  .sidebar-toggle{display:inline-flex}
+  .sidebar-close{display:block}
+  .main-content{padding:40px 18px 24px}
+}
+
+@media (max-width: 720px){
+  .main-content{padding:24px 16px 20px}
+  .page-hero h1{font-size:1.35rem}
+  .stat-grid{grid-template-columns:1fr;gap:14px;margin-bottom:18px}
+  .stat-card{padding:18px}
+  .stat-card .stat-value{font-size:1.7rem}
+  .action-grid{grid-template-columns:1fr;gap:14px}
+  .action-card{padding:20px;min-height:auto}
+  .grid-2,.grid-3{grid-template-columns:1fr;gap:14px}
+  .quran-star-card{padding:22px 18px}
+  .quran-star-content .big{font-size:1.25rem}
+  .card{padding:18px}
+  .table tbody td{padding:10px 12px}
+  .table thead th{padding:10px 12px}
+  .feedback-card{padding:16px}
+  .empty{padding:36px 16px}
+  .footer{padding:16px}
+  .topbar{gap:10px;padding:0 12px}
+  .btn{white-space:normal}
+  audio{margin:.5rem 0}
+  .progress{height:12px}
+  .progress-text{font-size:.64rem}
+}
+
+@media (max-width: 480px){
+  .topbar-title{font-size:.9rem}
+  .topbar-user{gap:6px}
+  .topbar-user .avatar{width:32px;height:32px}
+  .topbar-user .uname{display:none}
+  .main-content{padding-top:20px}
+  .page-hero{margin-bottom:16px}
+  h1{font-size:1.3rem}
+  h2{font-size:1.15rem}
+  .stat-card .stat-ico{width:34px;height:34px;font-size:1rem;top:14px;right:14px}
+  .stat-card{padding:18px 60px 18px 18px}
+  .modal-content{padding:18px}
+  .form-input,.form-select,.form-textarea{padding:10px 12px}
+  .btn{padding:10px 14px;font-size:.88rem}
+  .btn-block,.btn-lg{width:100%}
+  .chip span{padding:7px 12px}
+  .left-block{text-align:center}
+  .table{font-size:.82rem}
+}

@@ -1,0 +1,16 @@
+AddType audio/webm .webm
+AddType audio/ogg .ogg
+AddType audio/mpeg .mp3
+AddType audio/mp4 .m4a
+AddType audio/aac .aac
+
+# Never let a script run out of an upload folder.
+<FilesMatch "(?i)\.(php|phtml|php3|php4|php5|php7|phar|pl|py|cgi|asp|aspx|jsp|sh|shtml|pht|inc)$">
+  Require all denied
+</FilesMatch>
+RemoveHandler .php .php3 .php4 .php5 .phtml .phar
+RemoveType .php .php3 .php4 .php5 .phtml .phar
+
+<IfModule mod_headers.c>
+    Header set Accept-Ranges bytes
+</IfModule>

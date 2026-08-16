@@ -1,0 +1,16 @@
+# Secrets / local configuration (never commit real credentials)
+config/db.local.php
+
+# Runtime data (PHP sessions) — but keep the hardening .htaccess tracked
+tmp/*
+!tmp/.htaccess
+
+# Uploaded media — keep the hardening .htaccess files but not the files themselves
+uploads/**
+!uploads/**/
+!uploads/**/.htaccess
+
+# OS / editor cruft
+Thumbs.db
+.DS_Store
+*.swp

@@ -1,0 +1,253 @@
+/* =========================================================
+   LISANUN MUBEEN ACADEMY — OFFICIAL CERTIFICATE
+   Faithful recreation of certificate_demo master reference.
+   Single A4 portrait · thin dark-green + metallic-gold frame
+   · ivory ground · gold starburst seal · 4-row info sidebar
+   ========================================================= */
+
+.cert-sheet{
+  width:210mm;
+  height:297mm;
+  max-width:100%;
+  margin:0 auto;
+  background:#002A20;                 /* outer frame band */
+  box-shadow:0 20px 50px rgba(2,36,27,.30);
+  position:relative;
+  overflow:hidden;
+}
+
+.cert-holder{
+  position:relative;
+  background:
+    radial-gradient(60mm 24mm at 0 0, rgba(201,162,75,.07), transparent 70%),
+    radial-gradient(50mm 26mm at 100% 100%, rgba(6,59,46,.05), transparent 70%),
+    #F8F7F4;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:12mm 14mm 6mm;
+  height:287mm;
+  overflow:hidden;
+}
+
+/* Inner metallic-gold filigree frame */
+.cert-holder::before{
+  content:"";
+  position:absolute;inset:4mm;pointer-events:none;
+  border:0.7mm solid #C1730C;
+  outline:0.25mm solid #F0CA6B;
+  outline-offset:-1.6mm;
+}
+
+/* Subtle Islamic geometric watermark */
+.cert-holder::after{
+  content:"";
+  position:absolute;inset:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%23002A20' stroke-width='1' opacity='0.05'%3E%3Cpath d='M70 12 L84 56 L128 70 L84 84 L70 128 L56 84 L12 70 L56 56 Z'/%3E%3Ccircle cx='70' cy='70' r='38'/%3E%3Ccircle cx='70' cy='70' r='54' stroke-dasharray='3 8'/%3E%3Cpath d='M70 70 L84 56 M70 70 L56 56 M70 70 L84 84 M70 70 L56 84'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ---------- CORNER ORNAMENTS ---------- */
+.corner{position:absolute;z-index:3;pointer-events:none}
+.corner-tl{top:0;left:0;width:30mm;height:30mm}
+.corner-tr{top:0;right:0;width:30mm;height:30mm;transform:scaleX(-1)}
+.corner-bl{bottom:0;left:0;width:22mm;height:22mm;transform:scaleY(-1)}
+.corner-br{bottom:0;right:0;width:22mm;height:22mm;transform:scaleX(-1) scaleY(-1)}
+.corner svg{width:100%;height:100%;display:block}
+
+/* ---------- HEADER ---------- */
+.cert-header{text-align:center;position:relative;z-index:2}
+.cert-logo{
+  width:20mm;height:20mm;margin:0 auto 2.4mm;border-radius:50%;
+  padding:1.1mm;background:linear-gradient(135deg,#F0CA6B,#C1730C,#83600F);
+  box-shadow:0 0 0 0.45mm #002A20, 0 0 0 1mm rgba(193,115,12,.35);
+}
+.cert-logo img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;background:#fff}
+.cert-school{
+  font-family:var(--font-cert-serif,'Playfair Display',serif);
+  font-weight:700;font-size:15pt;letter-spacing:.20em;text-transform:uppercase;
+  color:#003525;margin:0;line-height:1.2;
+}
+.cert-tagline-row{display:flex;align-items:center;gap:3.4mm;margin:2.2mm auto 0;max-width:96mm}
+.tag-rule{flex:1;height:0.3mm;background:linear-gradient(90deg,rgba(193,115,12,0),#C1730C 60%,#D9B44A)}
+.tag-rule:last-child{transform:scaleX(-1)}
+.cert-tagline{
+  font-family:var(--font-cert-serif,'Playfair Display',serif);
+  font-weight:600;font-size:7.6pt;letter-spacing:.30em;text-transform:uppercase;
+  color:#A87E2F;margin:0;white-space:nowrap;
+}
+
+/* ---------- METADATA ---------- */
+.cert-meta{
+  display:flex;justify-content:space-between;align-items:baseline;gap:8mm;
+  margin-top:5mm;padding-top:2.6mm;
+  border-top:0.25mm solid rgba(193,115,12,.5);
+  position:relative;z-index:2;
+}
+.meta-item{display:flex;align-items:baseline;gap:2.2mm}
+.meta-lbl{font-size:7.6pt;letter-spacing:.12em;text-transform:uppercase;color:#6b7280;font-weight:600}
+.meta-item strong{font-size:9.5pt;color:#202522;font-weight:700;letter-spacing:.04em}
+
+/* ---------- TITLE ---------- */
+.cert-title-block{
+  display:flex;align-items:center;gap:5mm;margin-top:4mm;position:relative;z-index:2;
+}
+.t-orn{flex:1;height:0.4mm;background:linear-gradient(90deg,rgba(193,115,12,0),#C1730C);position:relative}
+.t-orn:last-child{transform:scaleX(-1)}
+.t-diamond{
+  position:absolute;top:50%;left:50%;width:1.7mm;height:1.7mm;
+  transform:translate(-50%,-50%) rotate(45deg);background:linear-gradient(135deg,#F0CA6B,#A87E2F);
+  box-shadow:0 0 0 0.3mm #C1730C;
+}
+.title-main{text-align:center;flex:none}
+.cert-title{
+  font-family:var(--font-cert-serif,'Playfair Display',serif);
+  font-weight:900;font-size:33pt;line-height:1.02;letter-spacing:.13em;text-transform:uppercase;
+  color:#07352A;margin:0;
+}
+.cert-subtitle{
+  font-family:var(--font-cert-serif,'Playfair Display',serif);
+  font-weight:700;font-size:12pt;letter-spacing:.46em;text-transform:uppercase;
+  color:#003525;margin-top:1.8mm;
+}
+
+/* ---------- RECIPIENT ---------- */
+.cert-recipient{
+  display:flex;align-items:center;justify-content:center;gap:9mm;
+  margin-top:4.5mm;position:relative;z-index:2;
+}
+.recipient-text{text-align:center;flex:1;min-width:0}
+.cert-preamble{
+  font-family:var(--font-cert-serif,'Playfair Display',serif);
+  font-style:italic;font-size:9.5pt;color:#202522;margin:0 0 1.4mm;
+}
+.cert-name{
+  font-family:var(--font-cert-serif,'Playfair Display',serif);
+  font-weight:800;font-size:25pt;line-height:1.08;letter-spacing:.04em;
+  color:#003525;margin:0;word-break:break-word;
+}
+.name-gem{
+  display:block;width:2mm;height:2mm;margin:2mm auto 0;
+  transform:rotate(45deg);
+  background:linear-gradient(135deg,#F0CA6B,#A87E2F);
+  box-shadow:0 0 0 0.3mm #C1730C;
+}
+.cert-photo{
+  width:26mm;height:34mm;flex:none;border-radius:2mm;
+  padding:1mm;background:linear-gradient(135deg,#F0CA6B,#C1730C,#83600F);
+  box-shadow:0 0 0 0.4mm rgba(6,59,46,.85), 0 2.5mm 7mm rgba(15,23,42,.18);
+}
+.cert-photo img{width:100%;height:100%;object-fit:cover;border-radius:1.3mm;display:block;background:#e9e6dc}
+
+/* ---------- BODY + SIDEBAR ---------- */
+.cert-main{
+  display:flex;gap:8mm;align-items:stretch;margin-top:4.5mm;position:relative;z-index:2;
+}
+.cert-col{flex:1.4;min-width:0;display:flex;flex-direction:column}
+.cert-body{text-align:center}
+.cert-body p{font-size:10pt;line-height:1.72;color:#202522;margin:0}
+.cert-body p + p{margin-top:3mm}
+.cert-body .cert-dua{font-style:italic;color:#3f4a45}
+
+.cert-ayah{text-align:center;margin-top:3.6mm}
+.ayah-arabic{
+  font-family:var(--font-arabic,'Amiri',serif);
+  font-size:21pt;font-weight:700;color:#B8860B;line-height:1.5;
+  direction:rtl;unicode-bidi:embed;
+}
+.ayah-en{font-style:italic;font-size:9pt;color:#202522;margin-top:1.2mm}
+.ayah-ref{font-size:8.5pt;color:#6b7280;margin-top:.7mm}
+
+.cert-side{
+  flex:1;min-width:0;align-self:center;
+  border:0.3mm solid rgba(193,115,12,.6);
+  border-radius:2mm;padding:3mm 3.5mm;background:rgba(255,255,255,.5);
+  display:flex;flex-direction:column;gap:2.6mm;
+}
+.side-item{display:flex;align-items:center;gap:2.6mm}
+.side-item + .side-item{border-top:0.2mm solid rgba(193,115,12,.35);padding-top:2.6mm}
+.side-ico{
+  width:8.4mm;height:8.4mm;flex:none;border-radius:50%;
+  background:linear-gradient(135deg,#0B4A3A,#003525);color:#F0CA6B;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 0.4mm #C1730C;
+}
+.side-ico svg{width:4.6mm;height:4.6mm;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.side-meta{min-width:0;line-height:1.25}
+.side-meta span{display:block;font-size:7.4pt;letter-spacing:.1em;text-transform:uppercase;color:#6b7280;font-weight:600}
+.side-meta strong{display:block;font-size:9.8pt;font-weight:700;color:#003525;margin-top:.4mm}
+.side-stars{display:block;color:#C1730C;font-size:9pt;letter-spacing:.12em;margin-top:.5mm}
+
+/* ---------- SIGNATURES + SEAL ---------- */
+.cert-sig-block{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top:5.5mm;position:relative;z-index:2;
+}
+.cert-signature{text-align:center;flex:1;min-width:0}
+.sig-ar{
+  font-family:var(--font-arabic,'Amiri',serif);
+  font-size:11pt;font-weight:700;color:#202522;margin-bottom:1mm;
+}
+.sig-img{max-width:36mm;max-height:13mm;object-fit:contain;display:block;margin:0 auto 1.4mm}
+.sig-line{width:42mm;max-width:100%;height:0.45mm;background:#202522;margin:0 auto 1.8mm}
+.cert-signature span{font-size:9pt;font-weight:600;letter-spacing:.05em;color:#202522}
+.cert-seal{width:38mm;margin:0 6mm;flex:none}
+.cert-seal svg{width:100%;height:auto;display:block}
+
+/* ---------- VERIFICATION BOX ---------- */
+.cert-verify{
+  display:flex;align-items:center;gap:6mm;
+  margin-top:5mm;padding:2.8mm 4mm;position:relative;z-index:2;
+  border:0.35mm solid rgba(193,115,12,.65);border-radius:2mm;
+  background:rgba(255,255,255,.55);
+}
+.verify-text{flex:1;min-width:0;display:flex;align-items:center;gap:2.6mm}
+.verify-shield{
+  flex:none;width:7mm;height:7mm;border-radius:50%;
+  background:linear-gradient(135deg,#0B4A3A,#003525);color:#F0CA6B;
+  display:flex;align-items:center;justify-content:center;
+}
+.verify-shield svg{width:4mm;height:4mm;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.verify-text p{font-size:8pt;line-height:1.5;color:#202522;margin:0}
+.verify-text b{color:#003525}
+.verify-qr{
+  flex:none;width:13mm;height:13mm;background:#fff;
+  padding:.7mm;border:0.35mm solid #C1730C;border-radius:1.2mm;display:flex;
+}
+.verify-qr img{width:100%;height:100%;display:block;object-fit:contain}
+
+/* ---------- FOOTER BAR ---------- */
+.cert-footer{
+  margin-top:0;position:relative;z-index:2;
+  background:linear-gradient(135deg,#0B4A3A,#013829);
+  border-radius:1.8mm;padding:2.8mm 4mm;
+  display:flex;align-items:center;gap:4mm;
+  color:rgba(255,255,255,.9);
+}
+.cert-footer span{font-size:7.6pt;letter-spacing:.05em;flex:1;text-align:center}
+.cert-footer b{color:#F0CA6B;font-weight:700}
+.foot-sep{width:0.25mm;height:6.5mm;background:rgba(240,202,107,.6);flex:none}
+
+/* ---------- SCREEN RESPONSIVE ---------- */
+@media (max-width:820px){
+  .cert-sheet{width:min(210mm,100%);transform-origin:top center}
+  .cert-main{flex-direction:column}
+}
+@media (max-width:560px){
+  .cert-recipient{flex-direction:column;gap:5mm}
+  .cert-title{font-size:27pt}
+  .cert-name{font-size:21pt}
+  .cert-sig-block{flex-direction:column;align-items:center;gap:8mm}
+  .cert-seal{margin:2mm 0}
+}
+
+/* ---------- PRINT ---------- */
+@media print{
+  html,body{height:auto;min-height:0;background:#fff}
+  .sidebar,.topbar,.footer,.no-print,.cert-actions{display:none !important}
+  .main-area{margin:0 !important;min-height:0 !important;display:block !important}
+  .main-content{padding:0 !important;margin:0 !important}
+  .animate-rise{animation:none !important}
+  .cert-sheet{width:210mm;height:297mm;margin:0 auto;box-shadow:none}
+  .cert-holder{height:287mm;break-inside:avoid;page-break-inside:avoid}
+  @page{size:A4 portrait;margin:0}
+}

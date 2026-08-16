@@ -1,0 +1,370 @@
+/* =========================================================
+   LISANUN MUBEEN ACADEMY — COMPONENTS
+   buttons, cards, forms, tables, badges, alerts, progress…
+   ========================================================= */
+
+/* ---------------- Heading icons ---------------- */
+h1 svg,h2 svg,h3 svg,h4 svg{display:inline-block;vertical-align:-2px;flex:none}
+
+/* ---------------- Buttons ---------------- */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:11px 20px;
+  border-radius:var(--radius-sm);
+  border:none;
+  font-family:var(--font-display);
+  font-size:.92rem;
+  font-weight:600;
+  color:#fff;
+  background:var(--emerald-700);
+  cursor:pointer;
+  transition:transform .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s;
+  white-space:normal;
+  text-align:center;
+  max-width:100%;
+}
+.btn:hover{background:var(--emerald-800);box-shadow:var(--shadow-green);transform:translateY(-1px);color:#fff}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn:disabled{opacity:.5;pointer-events:none}
+.btn-block{display:flex;width:100%}
+.btn-sm{padding:8px 14px;font-size:.84rem}
+.btn-lg{padding:14px 26px;font-size:1rem}
+
+.btn-gold{background:linear-gradient(135deg,var(--gold-deep),var(--gold))}
+.btn-gold:hover{background:linear-gradient(135deg,var(--gold-deep),var(--gold));box-shadow:var(--shadow-gold)}
+.btn-danger{background:var(--danger)}
+.btn-danger:hover{background:#b91c1c;box-shadow:0 10px 22px rgba(220,38,38,.22)}
+.btn-outline{background:transparent;color:var(--emerald-800);border:1.5px solid var(--emerald-700)}
+.btn-outline:hover{background:var(--emerald-50);color:var(--emerald-800);box-shadow:none}
+.btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.btn-ghost:hover{background:var(--surface-muted);color:var(--text);box-shadow:var(--shadow)}
+
+.btn-back{
+  gap:6px;
+  background:var(--surface);
+  color:var(--text);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow-sm);
+}
+.btn-back:hover{background:var(--surface-muted);color:var(--text);box-shadow:var(--shadow);transform:translateX(-2px)}
+
+/* audio export buttons used in teaching */
+.left-block{margin-top:.75rem;text-align:left}
+
+/* ---------------- Cards ---------------- */
+.card{
+  position:relative;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:22px;
+  margin-bottom:18px;
+  box-shadow:var(--shadow);
+  transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.card-hover{transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease}
+.card-hover:hover{transform:translateY(-4px);box-shadow:var(--shadow-md);border-color:var(--emerald-300)}
+.card-title{margin-bottom:10px}
+.card-title h3{margin:0}
+.card-subtitle{color:var(--text-muted);font-size:.88rem;margin:0}
+.card .card-footer{margin-top:14px}
+
+.card-gold{
+  background:linear-gradient(135deg,#0b3d2e 0%,#075549 55%,#0e7a5a 100%);
+  border:none;
+  color:#fff;
+}
+.card-gold::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:
+    radial-gradient(600px 180px at 100% 0%, rgba(227,201,139,.28), transparent 60%),
+    url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='6' cy='6' r='1' fill='%23e3c98b' fill-opacity='.5'/%3E%3Ccircle cx='6' cy='34' r='1' fill='%23e3c98b' fill-opacity='.3'/%3E%3Ccircle cx='34' cy='20' r='1' fill='%23e3c98b' fill-opacity='.35'/%3E%3C/svg%3E");
+  pointer-events:none;
+}
+.card-gold > *{position:relative;z-index:1}
+.card-gold h3,.card-gold h2{color:#fff}
+.card-gold .muted{color:rgba(255,255,255,.82)}
+
+.card-danger{
+  background:var(--danger-bg);
+  border:1.5px solid var(--danger-border);
+}
+.card-danger .card-title h3{color:var(--danger)}
+
+/* Small info panel */
+.panel{
+  background:var(--surface-muted);
+  border:1px dashed var(--border);
+  border-radius:var(--radius-sm);
+  padding:14px 16px;
+  margin:.5rem 0;
+  font-size:.9rem;
+}
+
+/* ---------------- Forms ---------------- */
+.form-group{margin-bottom:14px}
+.form-label{
+  display:block;
+  font-weight:600;
+  font-size:.88rem;
+  margin-bottom:6px;
+  color:var(--text);
+}
+.form-label .req{color:var(--danger)}
+.form-input,.form-select,.form-textarea{
+  width:100%;
+  padding:11px 14px;
+  font-family:var(--font-body);
+  font-size:.95rem;
+  color:var(--text);
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.form-textarea{resize:vertical;min-height:110px}
+.form-input:focus,.form-select:focus,.form-textarea:focus{
+  outline:none;
+  border-color:var(--emerald-600);
+  box-shadow:0 0 0 4px rgba(16,185,129,.14);
+}
+.form-input[readonly],.form-input[disabled]{background:var(--surface-muted);color:var(--text-muted)}
+select.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M6 8 0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px}
+
+/* checkbox chips (day pickers) */
+.chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip span{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 14px;
+  border-radius:var(--radius-pill);
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  color:var(--text-muted);
+  font-weight:600;
+  font-size:.88rem;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.chip input:checked + span{background:var(--emerald-700);border-color:var(--emerald-700);color:#fff;box-shadow:var(--shadow-green)}
+
+/* native file input restyled */
+.file-input{
+  display:block;
+  width:100%;
+  padding:11px 14px;
+  font-family:var(--font-body);
+  font-size:.92rem;
+  color:var(--text);
+  background:var(--surface-muted);
+  border:1.5px dashed var(--border);
+  border-radius:var(--radius-sm);
+  cursor:pointer;
+  transition:border-color .15s ease, background .15s ease;
+}
+.file-input:hover{border-color:var(--emerald-600);background:var(--emerald-50)}
+.file-input::file-selector-button{
+  margin-right:12px;
+  padding:8px 14px;
+  border:none;
+  border-radius:var(--radius-sm);
+  background:var(--emerald-700);
+  color:#fff;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .15s ease;
+}
+.file-input::file-selector-button:hover{background:var(--emerald-800)}
+
+/* file input looks like a dropzone */
+.file-drop{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  padding:24px;
+  border:1.5px dashed var(--border);
+  border-radius:var(--radius-sm);
+  background:var(--surface-muted);
+  cursor:pointer;
+  transition:border-color .15s ease, background .15s ease;
+  font-size:.88rem;
+  color:var(--text-muted);
+  width:100%;
+}
+.file-drop:hover{border-color:var(--emerald-600);background:var(--emerald-50)}
+
+/* ---------------- Alerts ---------------- */
+.alert{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  padding:12px 16px;
+  border-radius:var(--radius-sm);
+  font-size:.9rem;
+  margin-bottom:16px;
+  border:1px solid transparent;
+}
+.alert-success{background:var(--success-bg);color:#065f46;border-color:var(--success-border)}
+.alert-danger{background:var(--danger-bg);color:#b91c1c;border-color:var(--danger-border)}
+.alert-warning{background:var(--warning-bg);color:#92400e;border-color:var(--warning-border)}
+.alert-info{background:var(--info-bg);color:#1e40af;border-color:var(--info-border)}
+
+/* ---------------- Badges / pills ---------------- */
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 11px;
+  border-radius:var(--radius-pill);
+  font-size:.75rem;
+  font-weight:700;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+  line-height:1.4;
+}
+.badge-green{background:var(--emerald-100);color:var(--emerald-800)}
+.badge-gold{background:linear-gradient(135deg,#f1dfae,#e7c87c);color:#7a5a15}
+.badge-red{background:var(--danger-bg);color:var(--danger)}
+.badge-grey{background:#eceff0;color:var(--text-muted)}
+.badge-blue{background:var(--info-bg);color:var(--info)}
+.badge-count{background:linear-gradient(135deg,var(--gold-deep),var(--gold));color:#fff;box-shadow:var(--shadow-gold)}
+
+/* ---------------- Progress ---------------- */
+.progress{position:relative;background:#e5e9e4;border-radius:var(--radius-pill);height:14px;overflow:hidden}
+.progress-fill{height:100%;border-radius:var(--radius-pill);background:linear-gradient(90deg,var(--emerald-700),var(--emerald-500));transition:width .6s cubic-bezier(.22,1,.36,1)}
+.progress-fill.gold{background:linear-gradient(90deg,var(--gold-deep),var(--gold))}
+.progress-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.7rem;font-weight:800;letter-spacing:.03em}
+
+/* ---------------- Tables ---------------- */
+.table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+table.table{width:100%;min-width:640px;border-collapse:collapse;font-size:.9rem}
+.table thead th{
+  text-align:left;
+  padding:14px 18px;
+  background:linear-gradient(180deg,var(--emerald-900),var(--emerald-800));
+  color:#fff;
+  font-family:var(--font-display);
+  font-size:.8rem;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.table thead th:first-child{border-top-left-radius:var(--radius)}
+.table thead th:last-child{border-top-right-radius:var(--radius)}
+.table tbody td{padding:14px 18px;border-top:1px solid var(--border);vertical-align:middle;white-space:normal;word-break:break-word;overflow-wrap:anywhere;line-height:1.5}
+.table tbody tr:nth-child(even){background:var(--surface-muted)}
+.table tbody tr:hover{background:var(--emerald-50)}
+.table .cell-nowrap{white-space:nowrap}
+.table .cell-top{vertical-align:top}
+.table .cell-wrap{white-space:normal;min-width:220px;max-width:360px}
+.table-empty{padding:40px;text-align:center;color:var(--text-muted)}
+
+/* ---------------- Type badges (recitation) ---------------- */
+.type-badge{display:inline-block;padding:4px 12px;border-radius:var(--radius-pill);font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--emerald-700)}
+.type-badge.live{background:linear-gradient(135deg,#1d4ed8,#3b82f6)}
+.type-badge.audio{background:linear-gradient(135deg,var(--emerald-800),var(--emerald-600))}
+
+/* ---------------- Topbar ---------------- */
+.topbar{
+  height:var(--topbar-h);
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:0 24px;
+  position:sticky;
+  top:0;
+  z-index:50;
+  background:rgba(255,255,255,.82);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.topbar-title{font-family:var(--font-display);font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-title .crumb{color:var(--text-muted);font-weight:400;margin-right:6px}
+.topbar-spacer{flex:1}
+.topbar-user{display:flex;align-items:center;gap:10px;font-size:.88rem}
+.topbar-user .avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--emerald-100)}
+.topbar-user .avatar.letter{
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--emerald-700),var(--emerald-500));
+  color:#fff;font-weight:700;font-family:var(--font-display);
+}
+.sidebar-toggle{display:none;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text);padding:6px 8px;border-radius:8px}
+.sidebar-toggle:hover{background:var(--surface-muted)}
+
+/* ---------------- Footer ---------------- */
+.footer{
+  text-align:center;
+  padding:22px;
+  color:var(--text-muted);
+  font-size:.85rem;
+  border-top:1px solid var(--border);
+  background:var(--surface);
+  margin-top:auto;
+}
+
+/* ---------------- Audio ---------------- */
+audio{width:100%;margin:.6rem 0;border-radius:var(--radius-sm)}
+audio::-webkit-media-controls-panel{background:var(--emerald-50)}
+
+/* ---------------- Modal ---------------- */
+.modal{display:none;position:fixed;inset:0;background:rgba(2,44,34,.55);backdrop-filter:blur(3px);justify-content:center;align-items:center;padding:18px;z-index:200}
+.modal.open{display:flex}
+.modal-content{background:var(--surface);border-radius:var(--radius-lg);max-width:560px;width:100%;max-height:88vh;overflow-y:auto;padding:24px;position:relative;box-shadow:var(--shadow-lg);animation:riseIn .3s ease}
+.modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted)}
+.modal-close:hover{color:var(--text)}
+
+/* ---------------- Feedbacks / recitation cards ---------------- */
+.feedback-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:5px solid var(--emerald-600);
+  border-radius:var(--radius);
+  padding:18px 20px;
+  margin-bottom:16px;
+  box-shadow:var(--shadow);
+  animation:riseIn .4s ease;
+}
+.status{font-weight:700}
+.status-accepted{color:var(--success)}
+.status-rejected{color:var(--danger)}
+
+/* ---------------- Empty state ---------------- */
+.empty{
+  text-align:center;
+  padding:50px 20px;
+  color:var(--text-muted);
+  background:var(--surface);
+  border:1px dashed var(--border);
+  border-radius:var(--radius);
+}
+.empty .empty-icon{font-size:2.4rem;margin-bottom:8px}
+.empty .empty-title{font-weight:600;color:var(--text);margin-bottom:4px}
+
+/* ---------------- Page intro ---------------- */
+.page-hero{margin-bottom:22px}
+.page-hero h1{margin-bottom:6px}
+.page-hero p{color:var(--text-muted);margin:0}
+
+/* ---------------- Utility grid ---------------- */
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+
+/* ---------------- Paywall / auth standalone pages ---------------- */
+.center-screen{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
