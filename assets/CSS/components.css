@@ -247,7 +247,7 @@ select.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Cs
 
 /* ---------------- Tables ---------------- */
 .table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
-table.table{border-collapse:collapse;font-size:.9rem}
+table.table{border-collapse:collapse;font-size:.9rem;width:max-content;min-width:100%}
 .table thead th{
   text-align:left;
   padding:14px 18px;
@@ -266,7 +266,7 @@ table.table{border-collapse:collapse;font-size:.9rem}
 .table tbody tr:hover{background:var(--emerald-50)}
 .table .cell-nowrap{white-space:nowrap}
 .table .cell-top{vertical-align:top}
-.table .cell-wrap{white-space:normal;min-width:220px;max-width:360px}
+.table .cell-wrap{white-space:normal;min-width:220px}
 .table-empty{padding:40px;text-align:center;color:var(--text-muted)}
 
 /* ---------------- Type badges (recitation) ---------------- */
