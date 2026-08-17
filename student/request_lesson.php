@@ -104,6 +104,32 @@ if ($last && $last['status'] === 'rejected') {
     );
 }
 
+/* Check if there is an outstanding lesson that has not been fully completed yet
+   (requested but not delivered, or delivered but not yet accepted). */
+$stmt = $conn->prepare("
+    SELECT l.id
+    FROM lessons l
+    WHERE l.student_id = ? AND l.surah_id = ?
+      AND l.status IN ('requested','sent')
+      AND NOT EXISTS (
+          SELECT 1 FROM student_recitation sr
+          WHERE sr.learning_plan_id = l.id AND sr.status = 'accepted'
+      )
+    LIMIT 1
+");
+$stmt->bind_param("ii", $student_id, $surah_id);
+$stmt->execute();
+if ($stmt->get_result()->fetch_assoc()) {
+    ui_message_page(
+        'info',
+        'Lesson Not Ready Yet',
+        'You already have a lesson that has not been delivered or fully reviewed yet.<br>You will be able to request the next portion once your current lesson has been accepted.',
+        'dashboard.php',
+        'Go Back',
+        'clock'
+    );
+}
+
 /* Insert new lesson request */
 $stmt = $conn->prepare("
     INSERT INTO lessons (student_id, surah_id, from_verse, to_verse, status)

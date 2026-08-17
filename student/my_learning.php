@@ -78,6 +78,27 @@ if ($active_plan) {
 }
 
 /* =============================
+   OUTSTANDING UNRESOLVED LESSON
+   (requested but not delivered, or delivered but not yet accepted)
+============================= */
+$has_outstanding_lesson = false;
+if ($active_plan) {
+    $stmt = $conn->prepare("
+        SELECT COUNT(*) c
+        FROM lessons l
+        WHERE l.student_id = ? AND l.surah_id = ?
+          AND l.status IN ('requested','sent')
+          AND NOT EXISTS (
+              SELECT 1 FROM student_recitation sr
+              WHERE sr.learning_plan_id = l.id AND sr.status = 'accepted'
+          )
+    ");
+    $stmt->bind_param("ii", $student_id, $active_plan['surah_id']);
+    $stmt->execute();
+    $has_outstanding_lesson = (int)$stmt->get_result()->fetch_assoc()['c'] > 0;
+}
+
+/* =============================
    FETCH SURAH LIST (NOT COMPLETED OR ACTIVE)
 ============================= */
 $completed_surah_ids = [];
@@ -203,6 +224,8 @@ $feedback_count = (int)$feedback_count_stmt->get_result()->fetch_assoc()['total'
             <div class="alert alert-info" style="margin:0;"><?= ui_icon('clock', 16) ?> Your latest recitation is <strong>awaiting review</strong>. You can request the next portion once your teacher reviews it.</div>
         <?php elseif ($last_rec_status === 'rejected'): ?>
             <div class="alert alert-warning" style="margin:0;"><?= ui_icon('close', 16) ?> Your last recitation was <strong>rejected</strong>. Please re-record it from <strong>My Lessons</strong> before requesting the next portion.</div>
+        <?php elseif ($has_outstanding_lesson): ?>
+            <div class="alert alert-info" style="margin:0;"><?= ui_icon('clock', 16) ?> Your lesson has not been delivered or fully reviewed yet. You can request the next portion once your current lesson has been accepted.</div>
         <?php else: ?>
             <form method="post" action="request_lesson.php">
                 <input type="hidden" name="surah_id" value="<?=$active_plan['surah_id']?>">
