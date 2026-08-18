@@ -98,6 +98,7 @@ if (!function_exists('ui_sidebar')) {
                 'applications' => ['applications.php',     'clipboard', 'Applications' . ($pending_apps > 0 ? ' <span class="nav-badge">' . $pending_apps . '</span>' : '')],
                 'teaching'     => ['teaching.php',         'book',   'Teaching'],
                 'recitations'  => ['recitations_list.php', 'notes',  'Recitations'],
+                'fixplans'     => ['fix_plan_start_verse.php', 'book-open', 'Fix Plans'],
                 'exams'        => ['exams.php',            'clipboard', 'Exams'],
                 'holiday'      => ['holiday_settings.php', 'clock',   'Holiday'],
                 'announcements'=> ['announcements.php',    'bell',   'Announcements'],

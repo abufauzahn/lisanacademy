@@ -12,7 +12,7 @@ $locked    = student_exam_locked($conn, $student_id);
 /* =============================
    FETCH CURRENT ACTIVE PLAN
 ============================= */
-$has_start_verse = db_column_exists($conn, 'student_learning', 'start_verse');
+$has_start_verse = db_ensure_start_verse_column($conn);
 $active_plan_res = $conn->prepare("
     SELECT sl.id AS plan_id, sl.surah_id, sl.verses_per_request, sl.completed_requests,
            sl.status, s.name_en AS surah_name, s.name_ar AS surah_name_ar, s.total_verses"

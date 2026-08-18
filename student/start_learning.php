@@ -37,10 +37,22 @@ if ($total_verses <= 0) {
 }
 
 /* Optional "start from verse" — lets a student who already knows part of a
-   surah continue from where they stopped instead of always beginning at 1. */
-$has_start_verse = db_column_exists($conn, 'student_learning', 'start_verse');
+   surah continue from where they stopped instead of always beginning at 1.
+   The student's chosen verse is never silently dropped: if the backing column
+   is missing we try to create it first, and fail loudly if that is not possible
+   instead of quietly starting from verse 1. */
+$has_start_verse = db_ensure_start_verse_column($conn);
 $start_verse = (int)($_POST['start_verse'] ?? 1);
-if (!$has_start_verse) $start_verse = 1;
+if (!$has_start_verse) {
+    ui_message_page(
+        'danger',
+        'Feature Unavailable',
+        'We could not enable the "start from a chosen verse" option right now. Please contact the academy so the database can be updated, then try again.',
+        'my_learning.php',
+        'Back to My Learning',
+        'close'
+    );
+}
 if ($start_verse < 1 || $start_verse > $total_verses) {
     ui_message_page(
         'danger',

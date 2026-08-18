@@ -23,9 +23,15 @@ if (!isset($_POST['surah_id']) || $_POST['surah_id'] <= 0) {
 
 $surah_id = (int)$_POST['surah_id'];
 
+/* The start_verse column may not exist yet in the database (the app creates it
+   on demand, but ALTER can fail on some shared hosts). Never reference it in a
+   query unless it is actually present, otherwise requesting a lesson errors. */
+$has_start_verse = db_ensure_start_verse_column($conn);
+
 /* Get total verses and verses_per_request from student_learning */
 $stmt = $conn->prepare("
-    SELECT sl.verses_per_request, s.total_verses, s.name_en
+    SELECT sl.verses_per_request, s.total_verses, s.name_en"
+    . ($has_start_verse ? ", sl.start_verse" : "") . "
     FROM student_learning sl
     JOIN surahs s ON s.id = sl.surah_id
     WHERE sl.student_id = ? AND sl.surah_id = ? AND sl.status = 'active'
@@ -41,6 +47,11 @@ $verses_per_request = (int)$sl['verses_per_request'];
 $total_verses       = (int)$sl['total_verses'];
 $surah_name         = $sl['name_en'];
 
+/* The next portion never goes below the verse the student chose to start the
+   plan from, even when no recitation has been accepted yet (e.g. a previous
+   lesson request was deleted). */
+$plan_start_verse = $has_start_verse ? max(1, (int)($sl['start_verse'] ?? 1)) : 1;
+
 /* Determine next verse range based on last ACCEPTED recitation */
 $stmt = $conn->prepare("
     SELECT l.to_verse
@@ -54,7 +65,7 @@ $stmt->bind_param("ii", $student_id, $surah_id);
 $stmt->execute();
 $last_accepted = $stmt->get_result()->fetch_assoc();
 
-$from_verse = $last_accepted ? $last_accepted['to_verse'] + 1 : 1;
+$from_verse = $last_accepted ? max($plan_start_verse, (int)$last_accepted['to_verse'] + 1) : $plan_start_verse;
 
 if ($from_verse > $total_verses) {
     ui_message_page(

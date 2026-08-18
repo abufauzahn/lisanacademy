@@ -415,6 +415,26 @@ if (!function_exists('db_column_exists')) {
     }
 }
 
+if (!function_exists('db_ensure_start_verse_column')) {
+    /**
+     * Make sure student_learning.start_verse exists, creating it if needed.
+     * Idempotent and never throws. Returns true when the column exists
+     * afterwards (either already present or just added).
+     */
+    function db_ensure_start_verse_column($conn) {
+        if (db_column_exists($conn, 'student_learning', 'start_verse')) {
+            return true;
+        }
+        try {
+            $conn->query("ALTER TABLE student_learning ADD COLUMN start_verse INT NOT NULL DEFAULT 1 AFTER verses_per_request");
+        } catch (Throwable $e) {
+            error_log('db_ensure_start_verse_column failed: ' . $e->getMessage());
+            return false;
+        }
+        return db_column_exists($conn, 'student_learning', 'start_verse');
+    }
+}
+
 if (!function_exists('db_column_type')) {
     /**
      * Return the column type definition (e.g. "enum('pending','approved','rejected')")
