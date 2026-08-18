@@ -105,22 +105,29 @@ if ($active_plan) {
 }
 
 /* =============================
-   FETCH SURAH LIST (NOT COMPLETED OR ACTIVE)
+   FETCH SURAH LIST (NOT STARTED OR ACTIVE)
 ============================= */
 $completed_surah_ids = [];
-$completed_res = $conn->prepare("
-    SELECT surah_id FROM student_learning
-    WHERE student_id = ? AND status='completed'
+$started_surah_ids = [];
+$plan_res = $conn->prepare("
+    SELECT surah_id, status FROM student_learning
+    WHERE student_id = ?
 ");
-$completed_res->bind_param("i", $student_id);
-$completed_res->execute();
-$res = $completed_res->get_result();
+$plan_res->bind_param("i", $student_id);
+$plan_res->execute();
+$res = $plan_res->get_result();
 while($row = $res->fetch_assoc()){
-    $completed_surah_ids[] = (int)$row['surah_id'];
+    $started_surah_ids[] = (int)$row['surah_id'];
+    if ($row['status'] === 'completed') {
+        $completed_surah_ids[] = (int)$row['surah_id'];
+    }
 }
 
-// Exclude active plan surah too
-$exclude_ids = $active_plan ? array_merge($completed_surah_ids, [$active_plan['surah_id']]) : $completed_surah_ids;
+/* student_learning is unique per (student, surah) — a surah can only ever be
+   started once, so ANY surah with an existing row (active, completed, or an
+   odd leftover status) must not be offered again in the dropdown, otherwise
+   starting it would hit the unique key and crash. */
+$exclude_ids = $started_surah_ids;
 
 // Safe query for surahs
 if (!empty($exclude_ids)) {

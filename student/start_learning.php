@@ -52,11 +52,14 @@ if ($start_verse < 1 || $start_verse > $total_verses) {
     );
 }
 
-// Check if there is already an active plan for this surah
+/* Check if the student already has ANY learning plan for this surah.
+   student_learning is unique per (student, surah), so a plan can only ever be
+   started once — a completed plan (or any leftover row with an odd status)
+   also blocks a second one. */
 $check = $conn->prepare("
     SELECT id 
     FROM student_learning 
-    WHERE student_id = ? AND surah_id = ? AND status = 'active'
+    WHERE student_id = ? AND surah_id = ?
     LIMIT 1
 ");
 $check->bind_param("ii", $student_id, $surah_id);
@@ -64,9 +67,14 @@ $check->execute();
 $check->store_result();
 
 if ($check->num_rows > 0) {
-    // Already an active plan for this surah
-    header("Location: my_learning.php");
-    exit;
+    ui_message_page(
+        'info',
+        'Surah Already Started',
+        'You already have a learning plan for this surah. Continue from your active plan in <strong>My Learning</strong>.',
+        'my_learning.php',
+        'Back to My Learning',
+        'book'
+    );
 }
 
 /* Create learning plan */
@@ -94,7 +102,24 @@ if ($has_start_verse) {
     ");
     $stmt->bind_param("iii", $student_id, $surah_id, $verses_per_request);
 }
-$stmt->execute();
+
+/* The unique key (student, surah) is the final backstop — if a second row is
+   somehow attempted, show a friendly message instead of a 500 page. */
+try {
+    $stmt->execute();
+} catch (mysqli_sql_exception $e) {
+    if ($e->getCode() === 1062) {
+        ui_message_page(
+            'info',
+            'Surah Already Started',
+            'You already have a learning plan for this surah. Continue from your active plan in <strong>My Learning</strong>.',
+            'my_learning.php',
+            'Back to My Learning',
+            'book'
+        );
+    }
+    throw $e;
+}
 $plan_id = $stmt->insert_id;
 
 if ($total_verses > 0) {

@@ -8,9 +8,20 @@ $APP_DEBUG = false;
 // missing/broken db.local.php or a failed database connection still renders a
 // readable page and logs the cause — never a bare HTTP 500 with no explanation.
 set_exception_handler(function (Throwable $e) use (&$APP_DEBUG) {
-    error_log('Uncaught: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+    $detail = 'Uncaught: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
+    error_log($detail);
+
+    // Also keep a copy in the writable uploads folder so the site owner can
+    // retrieve the exact error message (e.g. via File Manager) without having
+    // to dig through the host's error logs.
+    @file_put_contents(__DIR__ . '/../uploads/app_errors.log', '[' . date('Y-m-d H:i:s') . '] ' . $detail . PHP_EOL, FILE_APPEND | LOCK_EX);
+
     http_response_code(500);
-    if (!empty($APP_DEBUG)) {
+
+    // Admins see the real message (helps debugging production issues);
+    // students only ever get the friendly page. $APP_DEBUG overrides both.
+    $is_admin = (session_status() === PHP_SESSION_ACTIVE && ($_SESSION['role'] ?? '') === 'admin');
+    if (!empty($APP_DEBUG) || $is_admin) {
         echo '<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;padding:18px;line-height:1.6;background:#fff;border:1px solid #e5e7eb;border-left:4px solid #dc2626;">'
            . '<h3 style="margin:0 0 8px;color:#b91c1c;">Application error</h3>'
            . '<p style="margin:0 0 6px;"><strong>' . htmlspecialchars($e->getMessage()) . '</strong></p>'
