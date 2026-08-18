@@ -124,7 +124,7 @@ foreach ($audits as $label => $rows) {
 <?php endif; ?>
 
 <?php if (empty($cols['phone'])): ?>
-    <div class="alert alert-warning"><?= ui_icon('info', 16) ?> The <code>users</code> table has no <code>phone</code> column — the WhatsApp "Message Student" feature will build links with an empty number.</div>
+    <div class="alert alert-warning"><?= ui_icon('info', 16) ?> The <code>users</code> table has no <code>phone</code> column — the WhatsApp "Message Student" feature falls back to the academy number. Run <a href="db_migrate07.php"><strong>Database Migration</strong></a> to add it (and backfill it from applications).</div>
 <?php endif; ?>
 
 <?php ui_page_end(); ?>

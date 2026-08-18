@@ -12,9 +12,11 @@ $locked    = student_exam_locked($conn, $student_id);
 /* =============================
    FETCH CURRENT ACTIVE PLAN
 ============================= */
+$has_start_verse = db_column_exists($conn, 'student_learning', 'start_verse');
 $active_plan_res = $conn->prepare("
     SELECT sl.id AS plan_id, sl.surah_id, sl.verses_per_request, sl.completed_requests,
-           sl.status, s.name_en AS surah_name, s.name_ar AS surah_name_ar, s.total_verses
+           sl.status, s.name_en AS surah_name, s.name_ar AS surah_name_ar, s.total_verses"
+           . ($has_start_verse ? ", sl.start_verse" : "") . "
     FROM student_learning sl
     JOIN surahs s ON s.id = sl.surah_id
     WHERE sl.student_id = ? AND sl.status = 'active'
@@ -23,6 +25,10 @@ $active_plan_res = $conn->prepare("
 $active_plan_res->bind_param("i", $student_id);
 $active_plan_res->execute();
 $active_plan = $active_plan_res->get_result()->fetch_assoc();
+
+if ($active_plan) {
+    $active_plan['start_verse'] = $has_start_verse ? max(1, (int)($active_plan['start_verse'] ?? 1)) : 1;
+}
 
 /* =============================
    UPDATE ACTIVE PLAN PROGRESS
@@ -43,7 +49,8 @@ if ($active_plan) {
     $stmt->execute();
     $completed_requests = (int)$stmt->get_result()->fetch_assoc()['c'];
 
-    $total_requests = max(1, (int)ceil($active_plan['total_verses'] / $active_plan['verses_per_request']));
+    $remaining_verses = max(1, (int)$active_plan['total_verses'] - (int)$active_plan['start_verse'] + 1);
+    $total_requests = max(1, (int)ceil($remaining_verses / $active_plan['verses_per_request']));
     $percentage = round(($completed_requests / $total_requests) * 100);
 
     // Auto-complete plan if finished
@@ -87,7 +94,6 @@ if ($active_plan) {
         SELECT COUNT(*) c
         FROM lessons l
         WHERE l.student_id = ? AND l.surah_id = ?
-          AND l.status IN ('requested','sent')
           AND NOT EXISTS (
               SELECT 1 FROM student_recitation sr
               WHERE sr.learning_plan_id = l.id AND sr.status = 'accepted'
@@ -194,7 +200,7 @@ $feedback_count = (int)$feedback_count_stmt->get_result()->fetch_assoc()['total'
         <span class="small text-muted">Complete this plan before starting another surah.</span>
     </div>
 
-    <?php $plan_done = (int)$active_plan['completed_requests']; $plan_total = max(1, (int)ceil($active_plan['total_verses'] / $active_plan['verses_per_request'])); ?>
+    <?php $plan_done = (int)$active_plan['completed_requests']; $plan_remaining = max(1, (int)$active_plan['total_verses'] - (int)$active_plan['start_verse'] + 1); $plan_total = max(1, (int)ceil($plan_remaining / $active_plan['verses_per_request'])); ?>
     <div class="grid-3" style="margin:14px 0 4px;">
         <div class="panel" style="margin:0;text-align:center;">
             <div style="font-family:var(--font-display);font-weight:800;font-size:1.25rem;color:var(--emerald-800);"><?= (int)$active_plan['verses_per_request'] ?></div>
@@ -217,15 +223,15 @@ $feedback_count = (int)$feedback_count_stmt->get_result()->fetch_assoc()['total'
 
     <div class="plan-action">
         <?php if ($exam_mode): ?>
-            <div class="alert alert-warning" style="margin:0;"><?= ui_icon('alert', 16) ?> Requesting the next portion is paused while exam mode is active.</div>
+            <div class="alert alert-warning" style="margin:0;"><?= ui_icon('alert', 16) ?> <span style="flex:1;min-width:0;">Requesting the next portion is paused while exam mode is active.</span></div>
         <?php elseif ($locked): ?>
-            <div class="alert alert-danger" style="margin:0;"><?= ui_icon('lock', 16) ?> You missed the exam term. Requesting lessons is paused until you pay the ₦500 fee and your exam is accepted.</div>
+            <div class="alert alert-danger" style="margin:0;"><?= ui_icon('lock', 16) ?> <span style="flex:1;min-width:0;">You missed the exam term. Requesting lessons is paused until you pay the ₦500 fee and your exam is accepted.</span></div>
         <?php elseif ($last_rec_status === 'pending'): ?>
-            <div class="alert alert-info" style="margin:0;"><?= ui_icon('clock', 16) ?> Your latest recitation is <strong>awaiting review</strong>. You can request the next portion once your teacher reviews it.</div>
+            <div class="alert alert-info" style="margin:0;"><?= ui_icon('clock', 16) ?> <span style="flex:1;min-width:0;">Your latest recitation is <strong>awaiting review</strong>. You can request the next portion once your teacher reviews it.</span></div>
         <?php elseif ($last_rec_status === 'rejected'): ?>
-            <div class="alert alert-warning" style="margin:0;"><?= ui_icon('close', 16) ?> Your last recitation was <strong>rejected</strong>. Please re-record it from <strong>My Lessons</strong> before requesting the next portion.</div>
+            <div class="alert alert-warning" style="margin:0;"><?= ui_icon('close', 16) ?> <span style="flex:1;min-width:0;">Your last recitation was <strong>rejected</strong>. Please re-record it from <strong>My Lessons</strong> before requesting the next portion.</span></div>
         <?php elseif ($has_outstanding_lesson): ?>
-            <div class="alert alert-info" style="margin:0;"><?= ui_icon('clock', 16) ?> Your lesson has not been delivered or fully reviewed yet. You can request the next portion once your current lesson has been accepted.</div>
+            <div class="alert alert-info" style="margin:0;"><?= ui_icon('clock', 16) ?> <span style="flex:1;min-width:0;">Your lesson has not been delivered or fully reviewed yet. You can request the next portion once your current lesson has been accepted.</span></div>
         <?php else: ?>
             <form method="post" action="request_lesson.php">
                 <input type="hidden" name="surah_id" value="<?=$active_plan['surah_id']?>">
@@ -265,6 +271,12 @@ $feedback_count = (int)$feedback_count_stmt->get_result()->fetch_assoc()['total'
             <p class="small text-muted" style="margin-top:6px;"><?= ui_icon('info', 14) ?> Smaller portions are reviewed more quickly.</p>
         </div>
 
+        <div class="form-group">
+            <label class="form-label" for="startVerseInput">Start from verse</label>
+            <input class="form-input" type="number" name="start_verse" id="startVerseInput" min="1" value="1" required>
+            <p class="small text-muted" style="margin-top:6px;"><?= ui_icon('info', 14) ?> Already learned some of this surah before? Tell us where to continue from — we'll calculate the remaining verses for you.</p>
+        </div>
+
         <div class="alert alert-info" id="message" style="display:none;"></div>
 
         <button type="submit" class="btn btn-block">Start Learning</button>
@@ -291,29 +303,42 @@ $feedback_count = (int)$feedback_count_stmt->get_result()->fetch_assoc()['total'
 <script>
 const surahSelect = document.getElementById('surahSelect');
 const versesInput = document.getElementById('versesInput');
+const startVerseInput = document.getElementById('startVerseInput');
 const messageBox = document.getElementById('message');
 
 function updateMessage() {
-    if (!surahSelect || !versesInput) return;
+    if (!surahSelect || !versesInput || !startVerseInput) return;
     const opt = surahSelect.options[surahSelect.selectedIndex];
-    if (!opt || !opt.dataset.total || !versesInput.value) {
+    if (!opt || !opt.dataset.total || !versesInput.value || !startVerseInput.value) {
         messageBox.style.display = 'none';
         return;
     }
     const total = parseInt(opt.dataset.total);
     const verses = parseInt(versesInput.value);
-    const requests = Math.ceil(total / verses);
+    let start = parseInt(startVerseInput.value);
+    if (isNaN(start) || start < 1) start = 1;
+    if (startVerseInput.max != total) startVerseInput.max = total;
     messageBox.style.display = 'flex';
+    if (start > total) {
+        messageBox.innerHTML =
+            `<strong>Start verse cannot be greater than ${total}.</strong> Please choose a verse between 1 and ${total}.`;
+        return;
+    }
+    const remaining = total - start + 1;
+    const requests = Math.ceil(remaining / verses);
     messageBox.innerHTML =
         `You selected <strong>${opt.dataset.name}</strong><br>
          Total verses: ${total}<br>
+         Starting from verse: ${start}<br>
+         Remaining verses: ${remaining}<br>
          Verses per request: ${verses}<br>
          Estimated requests: <strong>${requests}</strong>`;
 }
 
-if (surahSelect && versesInput) {
+if (surahSelect && versesInput && startVerseInput) {
     surahSelect.addEventListener('change', updateMessage);
     versesInput.addEventListener('input', updateMessage);
+    startVerseInput.addEventListener('input', updateMessage);
 }
 </script>
 

@@ -104,13 +104,15 @@ if ($last && $last['status'] === 'rejected') {
     );
 }
 
-/* Check if there is an outstanding lesson that has not been fully completed yet
-   (requested but not delivered, or delivered but not yet accepted). */
+/* Check if there is an outstanding lesson that has not been fully completed yet.
+   A lesson only counts as completed once it has an ACCEPTED recitation, so this
+   blocks new requests while any lesson for this surah is still waiting on one
+   (requested-but-unsent, delivered-but-not-recorded, pending review, or
+   rejected-and-needing-a-re-record). */
 $stmt = $conn->prepare("
     SELECT l.id
     FROM lessons l
     WHERE l.student_id = ? AND l.surah_id = ?
-      AND l.status IN ('requested','sent')
       AND NOT EXISTS (
           SELECT 1 FROM student_recitation sr
           WHERE sr.learning_plan_id = l.id AND sr.status = 'accepted'
