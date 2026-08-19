@@ -5,7 +5,7 @@ require_once __DIR__ . '/../config/db.php';
 
 require_role('student');
 
-if (exam_mode_on($conn)) {
+if (student_in_exam($conn, (int)($_SESSION['user_id'] ?? 0))) {
     header("Location: exam.php");
     exit;
 }

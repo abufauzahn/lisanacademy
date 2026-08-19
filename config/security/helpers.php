@@ -210,12 +210,15 @@ if (!function_exists('finalize_exam_term')) {
 
         if ($term_id <= 0) return;
 
-        /* ---- Non-participants: no (valid) attempt in this term ----
-           Draft attempts (started but not fully answered) count as NO
-           submission — the student becomes a defaulter like a non-starter. */
+        /* ---- Non-participants among the SELECTED students ----
+           Only students the admin selected for this term are expected to
+           participate. A selected student with no (valid) attempt in this term
+           becomes a defaulter (locked from normal lessons; owe the N500 fee).
+           Non-selected students are never flagged — they keep normal lessons. */
         $res = $conn->query("
             SELECT u.id FROM users u
             WHERE u.role = 'student'
+              AND u.exam_selected = 1
               AND NOT EXISTS (
                   SELECT 1 FROM exam_attempts ea
                   WHERE ea.student_id = u.id AND ea.term_id = $term_id
@@ -267,7 +270,7 @@ if (!function_exists('reset_exam_section')) {
      *   - deletes every exam answer + attempt (and their audio files on disk)
      *   - deletes every exam term
      *   - turns exam mode OFF and clears exam_started_at / current_term_id
-     *   - clears every student's exam_defaulted / exam_owed / exam_access / exam_paid_at
+     *   - clears every student's exam_defaulted / exam_owed / exam_access / exam_selected / exam_paid_at
      * Every step is guarded so it never crashes on a partial/missing schema.
      */
     function reset_exam_section($conn) {
@@ -305,7 +308,7 @@ if (!function_exists('reset_exam_section')) {
         }
 
         /* 4. Clear every student's exam flags */
-        $sets = ['exam_defaulted = 0', 'exam_owed = 0', 'exam_access = 0'];
+        $sets = ['exam_defaulted = 0', 'exam_owed = 0', 'exam_access = 0', 'exam_selected = 0'];
         if (db_column_exists($conn, 'users', 'exam_paid_at')) $sets[] = 'exam_paid_at = NULL';
         try {
             $conn->query("UPDATE users SET " . implode(', ', $sets) . " WHERE role = 'student'");
@@ -372,13 +375,46 @@ if (!function_exists('student_exam_access')) {
     }
 }
 
+if (!function_exists('student_exam_selected')) {
+    /**
+     * True when the admin selected this student as a qualified participant
+     * for the CURRENT exam term. Non-selected students are not expected to
+     * sit the exam and keep following their normal lessons.
+     */
+    function student_exam_selected($conn, $student_id) {
+        $student_id = (int)$student_id;
+        try {
+            $stmt = $conn->prepare("SELECT exam_selected FROM users WHERE id = ? LIMIT 1");
+            $stmt->bind_param("i", $student_id);
+            $stmt->execute();
+            $r = $stmt->get_result()->fetch_assoc();
+            return $r ? ((int)($r['exam_selected'] ?? 0) === 1) : false;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('student_in_exam')) {
+    /**
+     * True when this individual student's normal lessons are paused because
+     * they were selected to participate in the currently-active exam term.
+     * Replaces the old global "exam_mode_on" gate so non-selected students
+     * keep following their normal lessons while the exam runs.
+     */
+    function student_in_exam($conn, $student_id) {
+        return exam_mode_on($conn) && student_exam_selected($conn, $student_id);
+    }
+}
+
 if (!function_exists('can_take_exam')) {
     /**
-     * True when the student may sit the exam: global exam mode is on,
-     * OR the exam is open for this student only.
+     * True when the student may sit the exam: they were selected for the
+     * active exam term, OR the exam was reopened for this student only
+     * (paid fee / free retake).
      */
     function can_take_exam($conn, $student_id) {
-        return exam_mode_on($conn) || student_exam_access($conn, $student_id);
+        return student_in_exam($conn, $student_id) || student_exam_access($conn, $student_id);
     }
 }
 
@@ -1071,5 +1107,97 @@ if (!function_exists('csrf_verify')) {
             }
             ui_message_page('danger', 'Invalid Request', 'Invalid CSRF token. Please go back, refresh the page and try again.', '', '', 'close');
         }
+    }
+}
+
+if (!function_exists('maybe_auto_request_next_lesson')) {
+    /**
+     * Automatically create the next lesson request for a student whose
+     * recitation of a surah was just accepted. Mirrors the guards and verse
+     * maths used in student/request_lesson.php so a server-side request never
+     * bypasses the restrictions a student would hit.
+     *
+     * Returns one of:
+     *   'requested'              — next lesson created
+     *   'skipped_exam'           — student is selected for the active exam
+     *   'skipped_locked'         — student has an outstanding exam
+     *   'skipped_holiday'        — holiday mode is active
+     *   'skipped_no_plan'        — no active learning plan for this surah
+     *   'skipped_surah_complete' — the whole surah has been completed
+     *   'skipped_outstanding'    — another lesson still awaits an accepted recitation
+     */
+    function maybe_auto_request_next_lesson($conn, $student_id, $surah_id) {
+        $student_id = (int)$student_id;
+        $surah_id   = (int)$surah_id;
+        if ($student_id <= 0 || $surah_id <= 0) return 'skipped_no_plan';
+
+        if (student_in_exam($conn, $student_id)) return 'skipped_exam';
+        if (student_exam_locked($conn, $student_id)) return 'skipped_locked';
+        if (holiday_mode_on($conn)) return 'skipped_holiday';
+
+        /* Active learning plan for this surah. */
+        $has_start_verse = db_ensure_start_verse_column($conn);
+        $stmt = $conn->prepare("
+            SELECT sl.verses_per_request, s.total_verses"
+            . ($has_start_verse ? ", sl.start_verse" : "") . "
+            FROM student_learning sl
+            JOIN surahs s ON s.id = sl.surah_id
+            WHERE sl.student_id = ? AND sl.surah_id = ? AND sl.status = 'active'
+            LIMIT 1
+        ");
+        $stmt->bind_param("ii", $student_id, $surah_id);
+        $stmt->execute();
+        $plan = $stmt->get_result()->fetch_assoc();
+        if (!$plan) return 'skipped_no_plan';
+
+        $verses_per_request = (int)$plan['verses_per_request'];
+        $total_verses       = (int)$plan['total_verses'];
+        $plan_start_verse   = $has_start_verse ? max(1, (int)($plan['start_verse'] ?? 1)) : 1;
+
+        /* Next portion begins right after the last ACCEPTED recitation. */
+        $stmt = $conn->prepare("
+            SELECT l.to_verse
+            FROM student_recitation sr
+            JOIN lessons l ON l.id = sr.learning_plan_id
+            WHERE sr.student_id = ? AND l.surah_id = ? AND sr.status = 'accepted'
+            ORDER BY l.to_verse DESC
+            LIMIT 1
+        ");
+        $stmt->bind_param("ii", $student_id, $surah_id);
+        $stmt->execute();
+        $last_accepted = $stmt->get_result()->fetch_assoc();
+
+        $from_verse = $last_accepted
+            ? max($plan_start_verse, (int)$last_accepted['to_verse'] + 1)
+            : $plan_start_verse;
+
+        if ($from_verse > $total_verses) return 'skipped_surah_complete';
+
+        $to_verse = min($from_verse + $verses_per_request - 1, $total_verses);
+
+        /* Guard: any OTHER lesson for this surah still without an accepted
+           recitation blocks a new request (same rule as request_lesson.php). */
+        $stmt = $conn->prepare("
+            SELECT l.id
+            FROM lessons l
+            WHERE l.student_id = ? AND l.surah_id = ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM student_recitation sr
+                  WHERE sr.learning_plan_id = l.id AND sr.status = 'accepted'
+              )
+            LIMIT 1
+        ");
+        $stmt->bind_param("ii", $student_id, $surah_id);
+        $stmt->execute();
+        if ($stmt->get_result()->fetch_assoc()) return 'skipped_outstanding';
+
+        $stmt = $conn->prepare("
+            INSERT INTO lessons (student_id, surah_id, from_verse, to_verse, status)
+            VALUES (?, ?, ?, ?, 'requested')
+        ");
+        $stmt->bind_param("iiii", $student_id, $surah_id, $from_verse, $to_verse);
+        $stmt->execute();
+
+        return 'requested';
     }
 }

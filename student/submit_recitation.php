@@ -7,7 +7,7 @@ require_role('student');
 /* True when the request came from the in-page recorder (fetch), not a plain form. */
 $is_ajax = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
 
-if (exam_mode_on($conn)) {
+if (student_in_exam($conn, (int)($_SESSION['user_id'] ?? 0))) {
     if ($is_ajax) { echo 'Exam mode is active. You cannot submit recitations until the exam is concluded.'; exit; }
     exit('Exam mode is active. You cannot submit recitations until the exam is concluded.');
 }

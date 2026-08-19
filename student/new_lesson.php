@@ -6,7 +6,7 @@ require_role('student');
 
 $student_id = (int)$_SESSION['user_id'];
 
-$exam_mode = exam_mode_on($conn);
+$exam_mode = student_in_exam($conn, $student_id);
 $locked    = student_exam_locked($conn, $student_id);
 
 $device_row = $conn->query("SELECT device_type FROM users WHERE id = $student_id")->fetch_assoc();

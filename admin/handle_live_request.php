@@ -64,4 +64,13 @@ if ($action === 'accepted' || $action === 'rejected') {
     }
 }
 
+/* Accepted live recitation = the lesson is complete, so auto-request the next
+   portion (same helper as the recorded-recitation review flow). */
+if ($action === 'accepted') {
+    $lesson_row = $conn->query("SELECT surah_id FROM lessons WHERE id = $lesson_id")->fetch_assoc();
+    if ($lesson_row) {
+        maybe_auto_request_next_lesson($conn, $student_id, (int)$lesson_row['surah_id']);
+    }
+}
+
 echo "OK";

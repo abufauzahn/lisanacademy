@@ -47,13 +47,48 @@ if ($student['phone'] === '' && db_table_exists($conn, 'applications')) {
 $fallback_to_academy = ($student['phone'] === '');
 
 /* =====================
-   GET STUDENT'S CURRENT STATE
-   The message is decided from the student's LATEST recitation across ALL
-   lessons — never just the latest lesson — so an accepted recitation can
-   never be shown as "needs correction" because of an older lesson.
+   PRE-WRITTEN MESSAGES
+   The admin toggles between these and can edit the chosen one before sending.
 ===================== */
+$presets = [
+    'accepted' => [
+        'label' => 'Recitation Accepted',
+        'desc'  => 'Alhamdulillah, your recitation was accepted — you may request your next lesson.',
+        'text'  => "Assalamualaikum {name},\n\n"
+                . "Alhamdulillah! Your recitation has been accepted and you have completed this learning circle. "
+                . "You may now request your next lesson.\n\n"
+                . "Reminder: Consistency in the Qur'an brings light to the heart and barakah to time.",
+    ],
+    'rejected' => [
+        'label' => 'Recitation Needs Correction',
+        'desc'  => 'Your recitation was reviewed and needs correction — please recite again.',
+        'text'  => "Assalamualaikum {name},\n\n"
+                . "Your last recitation was reviewed and needs correction. "
+                . "Please go through the feedback carefully and recite again.\n\n"
+                . "Reminder: The Qur'an is not rushed. Take your time, perfect it, and Allah will reward every effort.",
+    ],
+    'pending'  => [
+        'label' => 'Recitation Under Review',
+        'desc'  => 'Your recitation is still being reviewed — please be patient.',
+        'text'  => "Assalamualaikum {name},\n\n"
+                . "Your last recitation is currently being reviewed. "
+                . "Please be patient — your teacher will get back to you with the result soon.\n\n"
+                . "Reminder: Patience with the Qur'an is never wasted time.",
+    ],
+    'lesson'   => [
+        'label' => 'New Lesson / Lesson Request',
+        'desc'  => 'A new lesson was sent, or the lesson request is being prepared.',
+        'text'  => "Assalamualaikum {name},\n\n"
+                . "Your new lesson has been sent. Please listen attentively, practice well, "
+                . "and submit your recitation for review.\n\n"
+                . "Reminder: The best of you are those who learn the Qur'an and teach it.",
+    ],
+];
 
-/* Latest recitation of any lesson. */
+/* Pick the preset that best matches the student's current state. The message
+   is decided from the student's LATEST recitation across ALL lessons — never
+   just the latest lesson — so an accepted recitation can never be shown as
+   "needs correction" because of an older lesson. */
 $recitation = $conn->query("
     SELECT sr.status
     FROM student_recitation sr
@@ -63,88 +98,31 @@ $recitation = $conn->query("
     LIMIT 1
 ")->fetch_assoc();
 
-/* Latest lesson (used only when the student has no recitation yet). */
-$lesson = $conn->query("
-    SELECT id
-    FROM lessons
-    WHERE student_id = $student_id
-    ORDER BY id DESC
-    LIMIT 1
-")->fetch_assoc();
-
-$message = '';
-$reminder = '';
-
+$default_key = 'lesson';
 if ($recitation && $recitation['status'] === 'rejected') {
-
-    $message = "Assalamualaikum {$student['name']},\n\n"
-    ."Your last recitation was reviewed and needs correction. "
-    ."Please go through the feedback carefully and recite again.";
-
-    $reminder = "Reminder: The Qur'an is not rushed. Take your time, perfect it, and Allah will reward every effort.";
-
+    $default_key = 'rejected';
 } elseif ($recitation && $recitation['status'] === 'pending') {
-
-    $message = "Assalamualaikum {$student['name']},\n\n"
-    ."Your last recitation is currently being reviewed. "
-    ."Please be patient — your teacher will get back to you with the result soon.";
-
-    $reminder = "Reminder: Patience with the Qur'an is never wasted time.";
-
+    $default_key = 'pending';
 } elseif ($recitation && $recitation['status'] === 'accepted') {
-
-    $message = "Assalamualaikum {$student['name']},\n\n"
-    ."Alhamdulillah! Your recitation has been accepted and you have completed this learning circle. "
-    ."You may now request your next lesson.";
-
-    $reminder = "Reminder: Consistency in the Qur'an brings light to the heart and barakah to time.";
-
-} elseif ($lesson) {
-
-    $lesson_id = (int)$lesson['id'];
-
-    /* ADMIN AUDIO */
-    $admin_audio = $conn->query("
-        SELECT id
-        FROM admin_audio
-        WHERE learning_plan_id = $lesson_id
-        LIMIT 1
-    ")->fetch_assoc();
-
-    if ($admin_audio) {
-
-        $message = "Assalamualaikum {$student['name']},\n\n"
-        ."Your new lesson has been sent. Please listen attentively, practice well, and submit your recitation for review.";
-
-        $reminder = "Reminder: The best of you are those who learn the Qur'an and teach it.";
-
-    } else {
-
-        $message = "Assalamualaikum {$student['name']},\n\n"
-        ."Your lesson request has been received. Please be patient while your teacher prepares your lesson.";
-
-        $reminder = "Reminder: Patience with the Qur'an is never wasted time.";
-    }
-
-} else {
-
-    /* NEVER REQUESTED / IDLE */
-    $message = "Assalamualaikum {$student['name']},\n\n"
-    ."We noticed that you have not requested a new lesson yet. "
-    ."We hope all is well. Please kindly log in and request your next lesson.";
-
-    $reminder = "Reminder: Do not let your time be lost in what does not benefit. The Qur'an deserves your best moments.";
+    $default_key = 'accepted';
 }
 
-/* FINAL MESSAGE */
-$final_message = $message . "\n\n" . $reminder;
+/* Inject the student's name into every preset (used server-side for the first
+   render and passed to JS for switching). */
+$filled = [];
+foreach ($presets as $key => $preset) {
+    $filled[$key] = str_replace('{name}', $student['name'], $preset['text']);
+}
+$selected_text = $filled[$default_key];
 
 /* WhatsApp link — use the student's own number; only fall back to the academy
    number when no phone is on file for the student. */
 $student_phone = !empty($student['phone'])
     ? $student['phone']
     : setting($conn, 'whatsapp_number', '2348029979040');
-$whatsapp_link = "https://wa.me/" . preg_replace('/[^0-9]/', '', $student_phone) . "?text=" . urlencode($final_message);
+$wa_number  = preg_replace('/[^0-9]/', '', $student_phone);
+$wa_base    = "https://wa.me/$wa_number";
+$whatsapp_link = "$wa_base?text=" . urlencode($selected_text);
 ?>
 <!DOCTYPE html>
 <html>
@@ -175,16 +153,61 @@ $whatsapp_link = "https://wa.me/" . preg_replace('/[^0-9]/', '', $student_phone)
     <?php endif; ?>
 
     <div class="form-group">
-        <label class="form-label">Message Preview</label>
-        <textarea class="form-textarea" style="min-height:220px;" readonly><?= htmlspecialchars($final_message) ?></textarea>
+        <label class="form-label">Choose a Message</label>
+        <?php foreach ($presets as $key => $preset): ?>
+            <label class="preset-option" data-key="<?= $key ?>" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;<?= $key === $default_key ? 'background:#ecfdf5;border-color:var(--emerald-500);' : '' ?>">
+                <input type="radio" name="preset" value="<?= $key ?>" <?= $key === $default_key ? 'checked' : '' ?> style="margin-top:3px;accent-color:var(--emerald-600);">
+                <span style="flex:1;min-width:0;">
+                    <strong style="display:block;"><?= htmlspecialchars($preset['label']) ?></strong>
+                    <span class="small text-muted" style="display:block;font-size:.78rem;"><?= htmlspecialchars($preset['desc']) ?></span>
+                </span>
+            </label>
+        <?php endforeach; ?>
     </div>
 
-    <a href="<?= $whatsapp_link ?>" target="_blank">
+    <div class="form-group">
+        <label class="form-label">Message Preview <span class="small text-muted">(editable — fine-tune before sending)</span></label>
+        <textarea class="form-textarea" id="messageText" style="min-height:220px;"><?= htmlspecialchars($selected_text) ?></textarea>
+    </div>
+
+    <a id="waLink" href="<?= htmlspecialchars($whatsapp_link) ?>" target="_blank">
         <button class="btn btn-gold btn-block btn-lg"><?= ui_icon('phone', 17) ?> Send via WhatsApp</button>
     </a>
 </div>
 
 <?php ui_page_end(); ?>
+
+<script>
+const PRESETS = <?= json_encode($filled, JSON_UNESCAPED_SLASHES) ?>;
+const WA_BASE = <?= json_encode($wa_base, JSON_UNESCAPED_SLASHES) ?>;
+const msgText = document.getElementById('messageText');
+const waLink  = document.getElementById('waLink');
+
+function updateLink(){
+    waLink.href = WA_BASE + '?text=' + encodeURIComponent(msgText.value);
+}
+
+function selectPreset(key){
+    if (PRESETS[key]) {
+        msgText.value = PRESETS[key];
+        updateLink();
+    }
+}
+
+document.querySelectorAll('input[name="preset"]').forEach(function(radio){
+    radio.addEventListener('change', function(){
+        selectPreset(this.value);
+        document.querySelectorAll('.preset-option').forEach(function(opt){
+            var active = opt.getAttribute('data-key') === this.value;
+            opt.style.background = active ? '#ecfdf5' : '';
+            opt.style.borderColor = active ? 'var(--emerald-500)' : '';
+        }, this);
+    });
+});
+
+msgText.addEventListener('input', updateLink);
+updateLink();
+</script>
 
 </body>
 </html>

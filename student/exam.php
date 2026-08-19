@@ -11,12 +11,13 @@ $device_row = $conn->query("SELECT device_type FROM users WHERE id = $student_id
 $device_type = $device_row['device_type'] ?? 'android';
 
 /* ============ EXAM MODE ============ */
-$exam_mode      = exam_mode_on($conn);
-$student_access = student_exam_access($conn, $student_id);
-$locked         = student_exam_locked($conn, $student_id);
-$can_take       = $exam_mode || $student_access;
-$term_info      = exam_term_info($conn);
-$term_label     = $term_info ? exam_term_label($term_info) : '';
+$exam_mode        = student_in_exam($conn, $student_id);
+$exam_active_glob = exam_mode_on($conn);
+$student_access   = student_exam_access($conn, $student_id);
+$locked           = student_exam_locked($conn, $student_id);
+$can_take         = can_take_exam($conn, $student_id);
+$term_info        = exam_term_info($conn);
+$term_label       = $term_info ? exam_term_label($term_info) : '';
 
 /* ============ COMPLETED SURAHS ============ */
 $completed = [];
@@ -144,11 +145,19 @@ $draft_total_questions = count($answers);
     </div>
 
 <?php elseif (!$can_take): ?>
-    <div class="card card-gold animate-rise">
-        <div class="card-title"><h3 style="margin-top:0;">Examination is currently closed</h3></div>
-        <p class="small" style="margin:0;">There is no active exam right now. Continue with your normal lessons — an exam will be announced when available.</p>
-        <a class="btn btn-gold mt-2" href="my_learning.php"><?= ui_icon('book', 16) ?> Go to My Learning</a>
-    </div>
+    <?php if ($exam_active_glob): ?>
+        <div class="card card-gold animate-rise">
+            <div class="card-title"><h3 style="margin-top:0;">You were not selected for this term's exam</h3></div>
+            <p class="small" style="margin:0;">An exam term is currently active, but you were <strong>not selected</strong> to participate this time. Please continue with your normal lessons — may Allah bless your progress!</p>
+            <a class="btn btn-gold mt-2" href="my_learning.php"><?= ui_icon('book', 16) ?> Go to My Learning</a>
+        </div>
+    <?php else: ?>
+        <div class="card card-gold animate-rise">
+            <div class="card-title"><h3 style="margin-top:0;">Examination is currently closed</h3></div>
+            <p class="small" style="margin:0;">There is no active exam right now. Continue with your normal lessons — an exam will be announced when available.</p>
+            <a class="btn btn-gold mt-2" href="my_learning.php"><?= ui_icon('book', 16) ?> Go to My Learning</a>
+        </div>
+    <?php endif; ?>
 
 <?php elseif (count($completed) === 0): ?>
     <div class="empty animate-rise">

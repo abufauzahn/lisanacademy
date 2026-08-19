@@ -53,11 +53,12 @@ $term = exam_term_info($conn);
 <div class="card animate-rise d1" style="max-width:640px;">
     <p class="small" style="margin:0;">
         <strong>How it works:</strong>
-        When an exam term closes, every student without an accepted result is locked from normal lessons.
-        Students who <strong>never submitted</strong> owe the <strong>N500</strong> fee — after it is confirmed here,
-        the exam opens for <strong>that student only</strong>. Students who <strong>did participate</strong> but were
-        rejected retake for free. Once a retaken exam is <strong>accepted (3 mistakes or fewer)</strong>,
-        the student automatically resumes normal lessons.
+        When an exam term closes, every <strong>selected (qualified)</strong> student without an accepted result is locked
+        from normal lessons. Selected students who <strong>never submitted</strong> owe the <strong>N500</strong> fee —
+        after it is confirmed here, the exam opens for <strong>that student only</strong>. Selected students who
+        <strong>did participate</strong> but were rejected retake for free. Once a retaken exam is
+        <strong>accepted (3 mistakes or fewer)</strong>, the student automatically resumes normal lessons.
+        Students who were <strong>not selected</strong> for the term are never affected — they keep their normal lessons.
     </p>
     <?php if ($term && empty($term['deactivated_at'])): ?>
         <div class="alert alert-info" style="margin-top:12px;"><?= ui_icon('info', 15) ?> The exam term is <strong>still active</strong>. Students appear here once the term closes (10 days or manual deactivation) or once their submission is rejected.</div>

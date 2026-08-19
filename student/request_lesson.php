@@ -4,7 +4,7 @@ require_role('student');
 require '../auth/auth_check.php';
 require '../config/db.php';
 
-if (exam_mode_on($conn)) {
+if (student_in_exam($conn, (int)($_SESSION['user_id'] ?? 0))) {
     header("Location: exam.php");
     exit;
 }

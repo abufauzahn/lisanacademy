@@ -76,6 +76,13 @@ if ($status === 'accepted') {
 /* Mark lesson as reviewed */
 $conn->query("UPDATE lessons SET status='reviewed' WHERE id={$data['learning_plan_id']}");
 
+/* IF ACCEPTED → AUTO-REQUEST THE NEXT PORTION for the student, so the next
+   learning cycle starts without the student asking again. The helper respects
+   all the restrictions the student would hit (exam/holiday/lock/completion). */
+$auto_result = ($status === 'accepted')
+    ? maybe_auto_request_next_lesson($conn, (int)$data['student_id'], (int)$data['surah_id'])
+    : '';
+
 /* Styled confirmation page (replaces the old bare "OK" white screen) */
 $accepted = ($status === 'accepted');
 $msg = $accepted
@@ -86,6 +93,13 @@ if ($rating) {
 }
 if ($feedback) {
     $msg .= '<br>Feedback: ' . nl2br(htmlspecialchars($feedback));
+}
+if ($accepted && $auto_result === 'requested') {
+    $msg .= '<br><br>A request for the next portion was <strong>automatically created</strong> — it now waits in the Teaching dashboard.';
+} elseif ($accepted && $auto_result === 'skipped_surah_complete') {
+    $msg .= '<br><br>This was the final portion — the surah is complete, so no further lesson was requested.';
+} elseif ($accepted && $auto_result !== '') {
+    $msg .= '<br><br>No next lesson was requested automatically (blocked by an active exam/holiday, an outstanding exam, or another lesson still awaiting review).';
 }
 ui_message_page(
     $accepted ? 'success' : 'danger',
